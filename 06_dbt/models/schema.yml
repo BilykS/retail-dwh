@@ -1,0 +1,231 @@
+version: 2
+
+models:
+  - name: dim_product
+    description: "Товари, плоский вимір: категорія та бренд колонками"
+    columns:
+      - name: product_key
+        description: "Сурогатний ключ: md5(product_id)"
+        tests:
+          - unique
+          - not_null
+      - name: product_id
+        description: "Природний ключ із src.products"
+        tests:
+          - unique
+          - not_null
+      - name: category_name
+        tests:
+          - not_null
+
+  - name: dim_store
+    description: "Магазини з розплющеними містом і областю"
+    columns:
+      - name: store_key
+        tests:
+          - unique
+          - not_null
+      - name: store_id
+        tests:
+          - unique
+          - not_null
+      - name: store_code
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_customer
+    description: "Покупці; рядок -1 = продаж без картки"
+    columns:
+      - name: customer_key
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        tests:
+          - unique
+          - not_null
+      - name: gender
+        tests:
+          - accepted_values:
+              values: ['Чоловіча', 'Жіноча', 'Не вказано']
+      - name: city
+        tests:
+          - not_null
+      - name: loyalty_tier
+        tests:
+          - not_null
+
+  - name: dim_date
+    description: "Календар 2024-2026, суцільний ряд без пропусків"
+    columns:
+      - name: date_key
+        description: "Ключ у форматі YYYYMMDD"
+        tests:
+          - unique
+          - not_null
+      - name: full_date
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_transaction_type
+    description: "Junk dimension: канал, спосіб оплати, тип транзакції"
+    columns:
+      - name: transaction_type_key
+        tests:
+          - unique
+          - not_null
+      - name: channel
+        tests:
+          - accepted_values:
+              values: ['offline', 'web', 'mobile']
+      - name: order_type
+        tests:
+          - accepted_values:
+              values: ['sale', 'return']
+      - name: payment_method
+        tests:
+          - accepted_values:
+              values: ['cash', 'card', 'online']
+  - name: fact_sales
+    columns:
+      - name: order_item_id
+        tests:
+          - unique
+          - not_null
+      - name: product_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+      - name: transaction_type_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_transaction_type')
+              field: transaction_type_key 
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_key
+      - name: store_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_key
+  - name: dim_warehouse
+    columns:
+      - name: warehouse_key
+        tests:
+          - unique
+          - not_null
+      - name: warehouse_id
+        tests:
+          - unique
+          - not_null
+      - name: warehouse_name
+        tests:
+          - not_null
+      - name: warehouse_city
+        tests:
+          - not_null
+      - name: warehouse_type
+        tests:
+          - accepted_values:
+              values: ['central', 'regional', 'transit']
+      - name: warehouse_opened_at
+        tests:
+          - not_null
+  - name: dim_article
+    description: "Артикули складу. Власні коди, зв'язок із роздрібом через article_retail_sku (неповний)"
+    columns:
+      - name: article_key
+        description: "Сурогатний ключ: md5(article_id)"
+        tests:
+          - unique
+          - not_null
+      - name: article_id
+        tests:
+          - unique
+          - not_null
+      - name: article_code
+        tests:
+          - unique
+          - not_null
+      - name: article_name
+        tests:
+          - not_null
+      - name: article_unit
+        tests:
+          - accepted_values:
+              values: ['шт', 'кг', 'л']
+      - name: article_retail_sku
+        description: "NULL для складських матеріалів (палети, плівка) — товару в роздрібі немає"
+
+  - name: fact_inventory
+    description: "Periodic snapshot: залишок артикула на складі станом на день. УСІ міри напівадитивні — sum() за датами не має сенсу"
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+      - name: warehouse_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_warehouse')
+              field: warehouse_key
+      - name: article_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_article')
+              field: article_key
+      - name: product_key
+        description: "md5(-1) для артикулів без товару роздрібу"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+      - name: qty_on_hand
+        description: "НАПІВАДИТИВНА: складати за товарами й складами можна, за датами — ні"
+        tests:
+          - not_null
+      - name: qty_available
+        description: "qty_on_hand - qty_reserved. Від'ємне значення = перепродаж, аварійний сигнал"
+        tests:
+          - not_null
+
+  - name: stock_cover
+    description: "Drill-across: залишок на останню дату проти темпу продажів за той самий період. Один рядок на товар, що є на складі"
+    columns:
+      - name: product_key
+        description: "Береться з боку stock (ліва таблиця left join) — у sales може бути NULL"
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+      - name: qty_stock
+        description: "Залишок на останню дату зрізу. НЕ сума за період — міра напівадитивна"
+        tests:
+          - not_null
+      - name: avg_per_day
+        description: "Продано штук за період / календарних днів періоду. NULL = товар не продавався"
+      - name: days_cover
+        description: "qty_stock / avg_per_day. NULL якщо продажів не було або вони взаємно погасились повтореннями"

@@ -1,0 +1,13 @@
+dwh:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      port: 5433
+      user: dwh
+      password: "{{ env_var('DBT_PASSWORD', 'dwh') }}"
+      dbname: dwh
+      # dbt writes here; schemas star and snow stay untouched
+      schema: dbt_star
+      threads: 4

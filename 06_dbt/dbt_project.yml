@@ -1,0 +1,14 @@
+name: 'dwh_star'
+version: '1.0.0'
+config-version: 2
+
+profile: 'dwh'
+
+model-paths: ["models"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  dwh_star:
+    # every model becomes a TABLE, not a view
+    +materialized: table
