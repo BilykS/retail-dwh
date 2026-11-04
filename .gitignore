@@ -1,0 +1,45 @@
+# ---- Python / віртуальне середовище ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# ---- dbt ----
+06_dbt/target/
+06_dbt/logs/
+06_dbt/dbt_packages/
+06_dbt/.user.yml
+
+# Містить пароль підключення. У репозиторій іде profiles.yml.example
+06_dbt/profiles.yml
+
+# ---- Power BI ----
+# Бінарний файл з вбудованими даними (41 МБ). У репозиторії — скриншот і опис моделі.
+*.pbix
+
+# ---- Дані та вивантаження ----
+*.csv
+*.dump
+*.backup
+backup.sql
+schema_only.sql
+
+# ---- Docker ----
+# Том із даними PostgreSQL живе в Docker, не в проєкті, але про всяк випадок
+pgdata/
+
+# ---- IDE та ОС ----
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- Тимчасове ----
+*.log
+*.tmp
+scratch.sql
+
+# ---- Формулювання задач (внутрішні) ----
+ЗАВДАННЯ-*.md
