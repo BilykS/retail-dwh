@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+<title>Зіркова схема продажів</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+  :root {
+    --paper:      #ECEEE8;
+    --surface:    #F7F8F4;
+    --ink:        #171B15;
+    --muted:      #5B6355;
+    --rule:       #CDD2C5;
+    --rule-soft:  #DEE2D8;
+    --fact:       #2C4A6B;
+    --fact-soft:  rgba(44, 74, 107, .07);
+    --key:        #8A6516;
+
+    --measure: 40rem;
+    --step-0: 1rem;
+    --step-1: 1.15rem;
+    --step-2: 1.45rem;
+    --step-3: 2rem;
+    --step-4: 2.9rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #131610;
+      --surface:    #1C201A;
+      --ink:        #E6EADF;
+      --muted:      #949D8D;
+      --rule:       #343B2E;
+      --rule-soft:  #262C21;
+      --fact:       #8FB4D8;
+      --fact-soft:  rgba(143, 180, 216, .11);
+      --key:        #D2AE59;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #131610;
+    --surface:    #1C201A;
+    --ink:        #E6EADF;
+    --muted:      #949D8D;
+    --rule:       #343B2E;
+    --rule-soft:  #262C21;
+    --fact:       #8FB4D8;
+    --fact-soft:  rgba(143, 180, 216, .11);
+    --key:        #D2AE59;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 3rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 5vw, 3.75rem);
+  }
+
+  h1, h2, h3 {
+    font-family: Bitter, Georgia, serif;
+    font-weight: 700;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 { font-size: clamp(2rem, 5.5vw, var(--step-4)); letter-spacing: -.015em; }
+  h2 { font-size: var(--step-3); letter-spacing: -.01em; }
+  h3 { font-size: var(--step-1); font-weight: 600; }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .72rem;
+    font-weight: 500;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 .9rem;
+  }
+
+  header .lede {
+    font-size: var(--step-1);
+    color: var(--muted);
+    margin-top: 1.1rem;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 2.25rem;
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--rule);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .78rem;
+    color: var(--muted);
+  }
+  .meta-strip b { color: var(--ink); font-weight: 500; }
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  /* ---------- diagram ---------- */
+
+  figure { margin: 0; }
+
+  .canvas {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: clamp(.75rem, 2vw, 1.5rem);
+    overflow-x: auto;
+  }
+
+  .er {
+    display: block;
+    width: 100%;
+    min-width: 900px;
+    height: auto;
+    color: var(--ink);
+  }
+
+  .er .box { fill: var(--surface); stroke: currentColor; stroke-opacity: .38; }
+  .er .box-fact { fill: var(--fact-soft); stroke: var(--fact); stroke-width: 2; }
+  .er .tname {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 13px; font-weight: 700; fill: currentColor;
+  }
+  .er .tname-fact { fill: var(--fact); }
+  .er .tmeta {
+    font-family: "Golos Text", sans-serif;
+    font-size: 10.5px; fill: var(--muted);
+  }
+  .er .rule { stroke: currentColor; stroke-opacity: .22; }
+  .er .cn {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; fill: currentColor; fill-opacity: .82;
+  }
+  .er .cn-pk { fill: var(--key); fill-opacity: 1; font-weight: 700; }
+  .er .cn-fk { fill: var(--fact); fill-opacity: 1; }
+  .er .mark {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 8px; font-weight: 700; letter-spacing: .06em;
+  }
+  .er .mark-pk { fill: var(--key); }
+  .er .mark-fk { fill: var(--fact); }
+  .er .edge { stroke: currentColor; stroke-opacity: .45; fill: none; }
+  .er .elabel {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; fill: var(--muted);
+  }
+  .er .arrow { fill: currentColor; fill-opacity: .45; }
+
+  figcaption {
+    margin-top: 1rem;
+    color: var(--muted);
+    font-size: .92rem;
+    max-width: 46rem;
+  }
+
+  /* ---------- table cards ---------- */
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+    gap: 1.15rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.15rem 1.25rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+  }
+  .card-fact {
+    border-color: var(--fact);
+    grid-column: 1 / -1;
+  }
+
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .card-name {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .95rem; font-weight: 700; letter-spacing: -.01em;
+  }
+  .card-fact .card-name { color: var(--fact); }
+  .card-rows {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .74rem; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cols { display: flex; flex-direction: column; gap: .1rem; }
+
+  .col {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .22rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .78rem;
+  }
+  .col:last-child { border-bottom: 0; }
+  .col .cn { color: var(--ink); }
+  .col .ct { color: var(--muted); font-size: .72rem; }
+
+  .card-fact .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0 2rem; }
+
+  .tag {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: .05rem .32rem;
+    border-radius: 2px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+  .t-pk { color: var(--key); }
+  .t-fk { color: var(--fact); }
+  .t-uq { color: var(--muted); }
+
+  .card-note {
+    font-size: .82rem;
+    color: var(--muted);
+    line-height: 1.5;
+    padding-top: .15rem;
+  }
+  .card-note code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .95em;
+  }
+
+  /* ---------- decisions ---------- */
+
+  .decisions { display: flex; flex-direction: column; gap: 0; }
+
+  .decision {
+    display: grid;
+    grid-template-columns: minmax(9rem, 13rem) 1fr;
+    gap: .35rem 2rem;
+    padding: 1rem 0;
+    border-top: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .decision:last-child { border-bottom: 1px solid var(--rule); }
+  .decision dt {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--key);
+  }
+  .decision dd { margin: 0; color: var(--muted); max-width: 44rem; }
+  .decision dd b { color: var(--ink); font-weight: 500; }
+
+  @media (max-width: 34rem) {
+    .decision { grid-template-columns: 1fr; gap: .3rem; }
+  }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    color: var(--muted);
+    font-size: .84rem;
+  }
+  footer code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+  }
+</style>
+
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <p class="eyebrow">Схема star · навчальний DWH</p>
+    <h1>Зіркова схема продажів</h1>
+    <p class="lede">Одна таблиця подій, п'ять довідників навколо неї. Модель побудована з операційної бази роздрібної мережі <code>src</code> і відповідає на десять бізнес-питань без жодного join'а глибше одного рівня.</p>
+    <div class="meta-strip">
+      <span>PostgreSQL&nbsp;16</span>
+      <span>таблиць: <b>6</b></span>
+      <span>зерно: <b>позиція чека</b></span>
+      <span>період: <b>2024–2025</b></span>
+    </div>
+  </header>
+
+  <section>
+    <div>
+      <p class="eyebrow">Структура</p>
+      <h2>Зв'язки</h2>
+    </div>
+
+    <figure>
+      <div class="canvas">
+        <svg class="er" viewBox="0 0 1200 900" role="img"
+             aria-label="Зіркова схема: таблиця фактів fact_sales із чотирнадцятьма колонками в центрі, навколо неї п'ять вимірів — dim_date, dim_product, dim_store, dim_customer і dim_transaction_type. Зовнішні ключі date_key, product_key, store_key, customer_key і transaction_type_key з'єднують факт з кожним виміром.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon class="arrow" points="0,1 10,5 0,9" />
+            </marker>
+          </defs>
+
+          <!-- edges: fact -> dimension -->
+          <line class="edge" x1="470" y1="378" x2="286" y2="206" marker-end="url(#ar)" />
+          <text class="elabel" x="462" y="366" text-anchor="end">date_key</text>
+
+          <line class="edge" x1="730" y1="378" x2="914" y2="192" marker-end="url(#ar)" />
+          <text class="elabel" x="738" y="366" text-anchor="start">product_key</text>
+
+          <line class="edge" x1="470" y1="545" x2="286" y2="556" marker-end="url(#ar)" />
+          <text class="elabel" x="462" y="534" text-anchor="end">store_key</text>
+
+          <line class="edge" x1="730" y1="545" x2="914" y2="506" marker-end="url(#ar)" />
+          <text class="elabel" x="738" y="534" text-anchor="start">customer_key</text>
+
+          <line class="edge" x1="600" y1="630" x2="600" y2="726" marker-end="url(#ar)" />
+          <text class="elabel" x="610" y="676" text-anchor="start">transaction_type_key</text>
+
+          <!-- dim_date -->
+          <g>
+            <rect class="box" x="40" y="40" width="240" height="216" rx="3" />
+            <text class="tname" x="54" y="66">dim_date</text>
+            <text class="tmeta" x="266" y="66" text-anchor="end">один день</text>
+            <line class="rule" x1="40" y1="78" x2="280" y2="78" />
+            <text class="cn cn-pk" x="54" y="98">date_key</text><text class="mark mark-pk" x="266" y="98" text-anchor="end">PK</text>
+            <text class="cn" x="54" y="114">full_date</text>
+            <text class="cn" x="54" y="130">year</text>
+            <text class="cn" x="54" y="146">quarter</text>
+            <text class="cn" x="54" y="162">month</text>
+            <text class="cn" x="54" y="178">month_name</text>
+            <text class="cn" x="54" y="194">day</text>
+            <text class="cn" x="54" y="210">day_of_week</text>
+            <text class="cn" x="54" y="226">day_name</text>
+            <text class="cn" x="54" y="242">is_weekend</text>
+          </g>
+
+          <!-- dim_product -->
+          <g>
+            <rect class="box" x="920" y="40" width="240" height="184" rx="3" />
+            <text class="tname" x="934" y="66">dim_product</text>
+            <text class="tmeta" x="1146" y="66" text-anchor="end">2 000</text>
+            <line class="rule" x1="920" y1="78" x2="1160" y2="78" />
+            <text class="cn cn-pk" x="934" y="98">product_key</text><text class="mark mark-pk" x="1146" y="98" text-anchor="end">PK</text>
+            <text class="cn" x="934" y="114">product_id</text>
+            <text class="cn" x="934" y="130">sku</text>
+            <text class="cn" x="934" y="146">product_name</text>
+            <text class="cn" x="934" y="162">category_name</text>
+            <text class="cn" x="934" y="178">category_parent</text>
+            <text class="cn" x="934" y="194">brand_name</text>
+            <text class="cn" x="934" y="210">unit_cost</text>
+          </g>
+
+          <!-- dim_store -->
+          <g>
+            <rect class="box" x="40" y="470" width="240" height="200" rx="3" />
+            <text class="tname" x="54" y="496">dim_store</text>
+            <text class="tmeta" x="266" y="496" text-anchor="end">30</text>
+            <line class="rule" x1="40" y1="508" x2="280" y2="508" />
+            <text class="cn cn-pk" x="54" y="528">store_key</text><text class="mark mark-pk" x="266" y="528" text-anchor="end">PK</text>
+            <text class="cn" x="54" y="544">store_id</text>
+            <text class="cn" x="54" y="560">store_code</text>
+            <text class="cn" x="54" y="576">store_name</text>
+            <text class="cn" x="54" y="592">city_name</text>
+            <text class="cn" x="54" y="608">region</text>
+            <text class="cn" x="54" y="624">store_type</text>
+            <text class="cn" x="54" y="640">opened_at</text>
+            <text class="cn" x="54" y="656">closed_at</text>
+          </g>
+
+          <!-- dim_customer -->
+          <g>
+            <rect class="box" x="920" y="400" width="240" height="216" rx="3" />
+            <text class="tname" x="934" y="426">dim_customer</text>
+            <text class="tmeta" x="1146" y="426" text-anchor="end">20 401</text>
+            <line class="rule" x1="920" y1="438" x2="1160" y2="438" />
+            <text class="cn cn-pk" x="934" y="458">customer_key</text><text class="mark mark-pk" x="1146" y="458" text-anchor="end">PK</text>
+            <text class="cn" x="934" y="474">customer_id</text>
+            <text class="cn" x="934" y="490">full_name</text>
+            <text class="cn" x="934" y="506">email</text>
+            <text class="cn" x="934" y="522">phone</text>
+            <text class="cn" x="934" y="538">birth_date</text>
+            <text class="cn" x="934" y="554">gender</text>
+            <text class="cn" x="934" y="570">city</text>
+            <text class="cn" x="934" y="586">loyalty_tier</text>
+            <text class="cn" x="934" y="602">main_shopping_city</text>
+          </g>
+
+          <!-- dim_transaction_type -->
+          <g>
+            <rect class="box" x="470" y="730" width="260" height="120" rx="3" />
+            <text class="tname" x="484" y="756">dim_transaction_type</text>
+            <line class="rule" x1="470" y1="768" x2="730" y2="768" />
+            <text class="cn cn-pk" x="484" y="788">transaction_type_key</text><text class="mark mark-pk" x="716" y="788" text-anchor="end">PK</text>
+            <text class="cn" x="484" y="804">channel</text>
+            <text class="cn" x="484" y="820">order_type</text>
+            <text class="cn" x="484" y="836">payment_method</text>
+          </g>
+
+          <!-- fact -->
+          <g>
+            <rect class="box-fact" x="470" y="318" width="260" height="312" rx="3" />
+            <text class="tname tname-fact" x="484" y="344">fact_sales</text>
+            <text class="tmeta" x="716" y="344" text-anchor="end">233 015</text>
+            <text class="tmeta" x="484" y="360">зерно: одна позиція чека</text>
+            <line class="rule" x1="470" y1="372" x2="730" y2="372" />
+            <text class="cn cn-pk" x="484" y="392">fact_key</text><text class="mark mark-pk" x="716" y="392" text-anchor="end">PK</text>
+            <text class="cn" x="484" y="408">order_item_id</text>
+            <text class="cn cn-fk" x="484" y="424">date_key</text><text class="mark mark-fk" x="716" y="424" text-anchor="end">FK</text>
+            <text class="cn cn-fk" x="484" y="440">product_key</text><text class="mark mark-fk" x="716" y="440" text-anchor="end">FK</text>
+            <text class="cn cn-fk" x="484" y="456">store_key</text><text class="mark mark-fk" x="716" y="456" text-anchor="end">FK</text>
+            <text class="cn cn-fk" x="484" y="472">customer_key</text><text class="mark mark-fk" x="716" y="472" text-anchor="end">FK</text>
+            <text class="cn cn-fk" x="484" y="488">transaction_type_key</text><text class="mark mark-fk" x="716" y="488" text-anchor="end">FK</text>
+            <text class="cn" x="484" y="504">hour</text>
+            <text class="cn" x="484" y="520">order_number</text>
+            <line class="rule" x1="470" y1="532" x2="730" y2="532" />
+            <text class="cn" x="484" y="552">quantity</text>
+            <text class="cn" x="484" y="568">gross_amount</text>
+            <text class="cn" x="484" y="584">discount_amount</text>
+            <text class="cn" x="484" y="600">net_amount</text>
+            <text class="cn" x="484" y="616">cost_amount</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Стрілка йде від факту до виміру — це напрямок зовнішнього ключа: багато рядків факту посилаються на один рядок виміру. <span style="color:var(--key)">Первинні ключі</span> виділено вохрою, <span style="color:var(--fact)">зовнішні</span> — синім. Риска всередині <code>fact_sales</code> відділяє ключі й ознаки від мір: усе, що нижче неї, підсумовується. <code>order_number</code> і <code>hour</code> лежать у самому факті — власних таблиць вони не мають.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div>
+      <p class="eyebrow">Довідник</p>
+      <h2>Таблиці й колонки</h2>
+      <p style="margin-top:.85rem;color:var(--muted)">Те саме, що на діаграмі, але з типами, обмеженнями й обґрунтуванням кожної таблиці. Кількість рядків — очікувана після завантаження ETL. <span class="tag t-pk">PK</span> первинний ключ, <span class="tag t-fk">FK</span> зовнішній, <span class="tag t-uq">UQ</span> унікальний.</p>
+    </div>
+
+    <div class="grid">
+
+      <div class="card card-fact">
+        <div class="card-head">
+          <span class="card-name">star.fact_sales</span>
+          <span class="card-rows">233 015 рядків · зерно: одна позиція чека</span>
+        </div>
+        <div class="cols">
+          <div class="col"><span class="cn">fact_key</span><span class="ct">bigint</span><span class="tag t-pk">PK</span></div>
+          <div class="col"><span class="cn">order_item_id</span><span class="ct">integer</span><span class="tag t-uq">UQ</span></div>
+          <div class="col"><span class="cn">date_key</span><span class="ct">integer</span><span class="tag t-fk">FK</span></div>
+          <div class="col"><span class="cn">product_key</span><span class="ct">integer</span><span class="tag t-fk">FK</span></div>
+          <div class="col"><span class="cn">store_key</span><span class="ct">integer</span><span class="tag t-fk">FK</span></div>
+          <div class="col"><span class="cn">customer_key</span><span class="ct">integer</span><span class="tag t-fk">FK</span></div>
+          <div class="col"><span class="cn">transaction_type_key</span><span class="ct">integer</span><span class="tag t-fk">FK</span></div>
+          <div class="col"><span class="cn">hour</span><span class="ct">integer</span><span></span></div>
+          <div class="col"><span class="cn">order_number</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">quantity</span><span class="ct">integer</span><span></span></div>
+          <div class="col"><span class="cn">gross_amount</span><span class="ct">numeric(12,2)</span><span></span></div>
+          <div class="col"><span class="cn">discount_amount</span><span class="ct">numeric(12,2)</span><span></span></div>
+          <div class="col"><span class="cn">net_amount</span><span class="ct">numeric(12,2)</span><span></span></div>
+          <div class="col"><span class="cn">cost_amount</span><span class="ct">numeric(12,2)</span><span></span></div>
+        </div>
+        <p class="card-note"><code>order_number</code> — degenerate dimension: номер чека без власної таблиці, потрібен для середнього чека та кількості чеків. <code>quantity</code> від'ємна для повернень, тому чиста виручка — це звичайний <code>sum(net_amount)</code>. Скасовані замовлення у факт не входять.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-name">star.dim_date</span>
+          <span class="card-rows">за діапазоном генерації</span>
+        </div>
+        <div class="cols">
+          <div class="col"><span class="cn">date_key</span><span class="ct">integer</span><span class="tag t-pk">PK</span></div>
+          <div class="col"><span class="cn">full_date</span><span class="ct">date</span><span></span></div>
+          <div class="col"><span class="cn">year</span><span class="ct">integer</span><span></span></div>
+          <div class="col"><span class="cn">quarter</span><span class="ct">integer</span><span></span></div>
+          <div class="col"><span class="cn">month</span><span class="ct">integer</span><span></span></div>
+          <div class="col"><span class="cn">month_name</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">day</span><span class="ct">integer</span><span></span></div>
+          <div class="col"><span class="cn">day_of_week</span><span class="ct">integer</span><span></span></div>
+          <div class="col"><span class="cn">day_name</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">is_weekend</span><span class="ct">bool</span><span></span></div>
+        </div>
+        <p class="card-note">Єдиний вимір без джерела — генерується. Ключ у форматі <code>YYYYMMDD</code>, тому дату видно в рядку факту без join'а. Числа сортують, назви показують.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-name">star.dim_product</span>
+          <span class="card-rows">2 000 рядків</span>
+        </div>
+        <div class="cols">
+          <div class="col"><span class="cn">product_key</span><span class="ct">integer</span><span class="tag t-pk">PK</span></div>
+          <div class="col"><span class="cn">product_id</span><span class="ct">integer</span><span class="tag t-uq">UQ</span></div>
+          <div class="col"><span class="cn">sku</span><span class="ct">text</span><span class="tag t-uq">UQ</span></div>
+          <div class="col"><span class="cn">product_name</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">category_name</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">category_parent</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">brand_name</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">unit_cost</span><span class="ct">numeric(12,2)</span><span></span></div>
+        </div>
+        <p class="card-note">Розплющено з чотирьох таблиць джерела: <code>products</code>, <code>categories</code> двічі (self-join за <code>parent_category_id</code>) і <code>brands</code>. Обидва рівні ієрархії — окремими колонками, тому <code>group by</code> працює на будь-якому.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-name">star.dim_store</span>
+          <span class="card-rows">30 рядків</span>
+        </div>
+        <div class="cols">
+          <div class="col"><span class="cn">store_key</span><span class="ct">integer</span><span class="tag t-pk">PK</span></div>
+          <div class="col"><span class="cn">store_id</span><span class="ct">integer</span><span class="tag t-uq">UQ</span></div>
+          <div class="col"><span class="cn">store_code</span><span class="ct">text</span><span class="tag t-uq">UQ</span></div>
+          <div class="col"><span class="cn">store_name</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">city_name</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">region</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">store_type</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">opened_at</span><span class="ct">date</span><span></span></div>
+          <div class="col"><span class="cn">closed_at</span><span class="ct">date</span><span></span></div>
+        </div>
+        <p class="card-note">Місто й область втягнуті з <code>src.cities</code>. <code>store_type</code> живе тут, а не в junk-вимірі, бо описує магазин — сутність, яка має власну таблицю.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-name">star.dim_customer</span>
+          <span class="card-rows">20 401 рядок</span>
+        </div>
+        <div class="cols">
+          <div class="col"><span class="cn">customer_key</span><span class="ct">integer</span><span class="tag t-pk">PK</span></div>
+          <div class="col"><span class="cn">customer_id</span><span class="ct">integer</span><span class="tag t-uq">UQ</span></div>
+          <div class="col"><span class="cn">full_name</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">email</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">phone</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">birth_date</span><span class="ct">date</span><span></span></div>
+          <div class="col"><span class="cn">gender</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">city</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">loyalty_tier</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">main_shopping_city</span><span class="ct">text</span><span></span></div>
+        </div>
+        <p class="card-note">Рядок <code>−1</code> — «Невідомий покупець» для 17,6% продажів без картки; завдяки йому <code>customer_key</code> ніколи не NULL і inner join нічого не втрачає. <code>gender</code>, <code>city</code>, <code>loyalty_tier</code> оголошені <code>not null</code>: ETL зобов'язаний підставити текст замість порожнечі.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-name">star.dim_transaction_type</span>
+          <span class="card-rows">18 рядків</span>
+        </div>
+        <div class="cols">
+          <div class="col"><span class="cn">transaction_type_key</span><span class="ct">integer</span><span class="tag t-pk">PK</span></div>
+          <div class="col"><span class="cn">channel</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">order_type</span><span class="ct">text</span><span></span></div>
+          <div class="col"><span class="cn">payment_method</span><span class="ct">text</span><span></span></div>
+        </div>
+        <p class="card-note">Junk dimension: три дрібні ознаки чека, у яких немає власної сутності. 3 × 3 × 2 = 18 комбінацій замість трьох текстових колонок, повторених 233 тисячі разів. <code>unique</code> на всіх трьох колонках — це його природний ключ.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div>
+      <p class="eyebrow">Обґрунтування</p>
+      <h2>Рішення, зашиті в схему</h2>
+    </div>
+
+    <dl class="decisions">
+      <div class="decision">
+        <dt>атомарне зерно</dt>
+        <dd>Один рядок факту — <b>одна позиція чека</b>, найдрібніше, що є в джерелі. Згорнути дрібне до великого можна завжди; розгорнути назад — ніколи.</dd>
+      </div>
+      <div class="decision">
+        <dt>сурогатні ключі</dt>
+        <dd>Ключ виміру генерує сховище, id джерела лежить поруч окремою колонкою. Це дозволяє мати рядки, яких у джерелі немає, зводити кілька джерел і — у майбутньому — тримати <b>кілька версій однієї сутності</b> для SCD Type 2.</dd>
+      </div>
+      <div class="decision">
+        <dt>unknown member</dt>
+        <dd>Спеціальний рядок <code>−1</code> замість NULL у зовнішньому ключі. Без нього inner join мовчки втрачав би <b>17,6% виручки</b>, і жодної помилки при цьому не виникало б.</dd>
+      </div>
+      <div class="decision">
+        <dt>degenerate dimension</dt>
+        <dd><code>order_number</code> у факті без власної таблиці: усі атрибути чека вже розібрані по інших вимірах, лишився сам номер. Без нього неможливий <b>середній чек</b>.</dd>
+      </div>
+      <div class="decision">
+        <dt>junk dimension</dt>
+        <dd>Канал, спосіб оплати й тип транзакції описують транзакцію, а не товар, магазин чи покупця. Замість трьох вимірів по три рядки — <b>один на 18 комбінацій</b>.</dd>
+      </div>
+      <div class="decision">
+        <dt>адитивні міри</dt>
+        <dd>Усі п'ять чисел підсумовуються за будь-яким виміром. Відсоток знижки перетворено на суму, ціну за одиницю — на суму позиції. <code>gross − discount = net</code> дозволяє перевірити арифметику вітрини, не заглядаючи в ETL.</dd>
+      </div>
+      <div class="decision">
+        <dt>собівартість у факті</dt>
+        <dd><code>cost_amount</code> фіксується <b>на момент продажу</b>, а не береться з виміру. Інакше зміна закупівельної ціни переписувала б торішню маржу заднім числом.</dd>
+      </div>
+      <div class="decision">
+        <dt>ідемпотентність</dt>
+        <dd><code>unique</code> на <code>order_item_id</code> робить повторний запуск ETL безпечним: другий прохід впаде з помилкою замість того, щоб тихо подвоїти виручку.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <footer>
+    Побудовано з <code>01_star/schema.sql</code>. Джерело — схема <code>src</code>: 11 таблиць OLTP, 236 891 позиція замовлень за 2024–2025. Наступний крок — ETL і звірка контрольних сум <code>src</code> проти <code>star</code>.
+  </footer>
+
+</div>
+</body>
+</html>
