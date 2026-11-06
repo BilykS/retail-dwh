@@ -58,7 +58,9 @@ dim_product
     category_name <-src.categories.category_id
     category_parent <- src.categories.parent_category_id
     brand <-src.brands(brand_id)
-    unit_cost <-src.products 
+    unit_cost <-src.products      поточна ціна (Type 1).
+                                  У факт іде НЕ вона, а ціна на дату продажу,
+                                  відновлена з src.product_changes
 
 dim_store
     store_id  <- src.stores

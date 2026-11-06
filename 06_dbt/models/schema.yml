@@ -124,6 +124,10 @@ models:
           - relationships:
               to: ref('dim_store')
               field: store_key
+      - name: cost_amount
+        description: "quantity * закупівельна ціна, що діяла В ДЕНЬ ПРОДАЖУ (через int_product_cost). Не перераховується при зміні цін постачальником"
+        tests:
+          - not_null
   - name: dim_warehouse
     columns:
       - name: warehouse_key
@@ -229,3 +233,24 @@ models:
         description: "Продано штук за період / календарних днів періоду. NULL = товар не продавався"
       - name: days_cover
         description: "qty_stock / avg_per_day. NULL якщо продажів не було або вони взаємно погасились повтореннями"
+
+  - name: int_product_cost
+    description: "Службова модель: періоди дії закупівельних цін, відновлені з src.product_changes. Потрібна факту, бо src.products.unit_cost зберігає лише поточне значення"
+    columns:
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+      - name: valid_from
+        description: "Перший період кожного товару починається 1900-01-01: припущення ETL, що до першої зафіксованої зміни діяла її old_value"
+        tests:
+          - not_null
+      - name: valid_to
+        description: "Відкритий період закривається 9999-12-31"
+        tests:
+          - not_null
+      - name: unit_cost
+        tests:
+          - not_null

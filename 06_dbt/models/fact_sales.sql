@@ -1,6 +1,9 @@
 -- fact_sales: одна позиція чека
 -- Ключі вимірів обчислюються ТІЄЮ САМОЮ формулою, що й у вимірах,
 -- тому join'и до них не потрібні взагалі.
+--
+-- Виняток — int_product_cost: собівартість на момент продажу неможливо
+-- обчислити з рядка замовлення, її доводиться шукати за датою.
 
 with base as (
 
@@ -19,13 +22,19 @@ with base as (
            i.quantity,
            (i.quantity * i.unit_price)::numeric(12,2)                          as gross_amount,
            (i.quantity * i.unit_price * i.discount_pct / 100)::numeric(12,2)   as discount_amount,
-           (i.quantity * p.unit_cost)::numeric(12,2)                           as cost_amount,
+           (i.quantity * ch.unit_cost)::numeric(12,2)                          as cost_amount,
            (i.quantity * i.unit_price - i.quantity * i.unit_price * i.discount_pct / 100)::numeric(12,2)  as net_amount
 
 
     from src.order_items i
     join src.orders   o on o.order_id   = i.order_id
     join src.products p on p.product_id = i.product_id
+
+    -- ціна, що діяла в день продажу, а не поточна
+    join {{ ref('int_product_cost') }} ch
+      on  ch.product_id = i.product_id
+      and o.ordered_at::date between ch.valid_from and ch.valid_to
+
     where o.status <> 'cancelled'
 
 )

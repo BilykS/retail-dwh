@@ -70,7 +70,42 @@ select to_char(d, 'YYYYMMDD')::int,
 from generate_series(date '2024-01-01', date '2026-12-31', interval '1 day') as d;
 
 insert into star.fact_sales (order_item_id, date_key, product_key, store_key, customer_key, transaction_type_key, hour, order_number, quantity, gross_amount, discount_amount, net_amount, cost_amount)
-with base as (
+with cost_history as (
+    -- Собівартості немає в рядку замовлення, а src.products.unit_cost зберігає
+    -- лише ПОТОЧНУ ціну. Брати її напряму не можна: тоді зміна закупівельної
+    -- ціни заднім числом переписала б історичну маржу. Відновлюємо ціну,
+    -- що діяла в день продажу, з журналу src.product_changes.
+    select w.product_id,
+           w.valid_from,
+           w.valid_to,
+           coalesce(
+               (select pc.old_value::numeric(12,2)
+                from src.product_changes pc
+                where pc.product_id = w.product_id
+                  and pc.field_name = 'unit_cost'
+                  and pc.changed_at::date > w.valid_from
+                order by pc.changed_at
+                limit 1),
+               pr.unit_cost
+           ) as unit_cost
+    from (
+        select product_id,
+               valid_from,
+               coalesce(
+                   lead(valid_from) over (partition by product_id order by valid_from) - 1,
+                   date '9999-12-31'
+               ) as valid_to
+        from (
+            select product_id, date '1900-01-01' as valid_from from src.products
+            union all
+            select product_id, changed_at::date
+            from src.product_changes
+            where field_name = 'unit_cost'
+        ) b
+    ) w
+    join src.products pr on pr.product_id = w.product_id
+),
+base as (
     select i.order_item_id,
     d.date_key,
     p.product_key,
@@ -82,7 +117,7 @@ with base as (
     i.quantity,
     i.quantity * i.unit_price as gross,
     i.quantity * i.unit_price * i.discount_pct / 100 as discount,
-    i.quantity * p.unit_cost                       as cost
+    i.quantity * ch.unit_cost                      as cost
 
     from src.order_items i
     join src.orders o on o.order_id = i.order_id
@@ -93,6 +128,8 @@ with base as (
     join star.dim_transaction_type t on t.channel = o.channel
                                     and t.payment_method = o.payment_method
                                     and t.order_type = o.order_type
+    join cost_history ch on ch.product_id = i.product_id
+                        and o.ordered_at::date between ch.valid_from and ch.valid_to
     where o.status <> 'cancelled'
 )
 select order_item_id, date_key, product_key, store_key, customer_key,
