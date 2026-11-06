@@ -1,0 +1,24 @@
+---
+import { type Locale, DEFAULT_LOCALE, t } from '~/i18n';
+
+interface Props {
+  lang?: Locale;
+}
+const { lang = DEFAULT_LOCALE } = Astro.props;
+
+const links = [
+  { text: 'GitHub', href: 'https://github.com/BilykS/retail-dwh' },
+  { text: t(lang, 'footer.portfolio'), href: 'https://portfolio-my-air.vercel.app' },
+];
+---
+
+<footer class="border-t border-rule">
+  <div class="shell flex flex-col gap-3 py-7 text-sm text-ink-2 sm:flex-row sm:justify-between">
+    <p>{t(lang, 'footer.data', { date: '2026-11-06' })}</p>
+    <nav class="flex flex-wrap gap-x-5 gap-y-2" aria-label="Links">
+      {links.map((l) => (
+        <a href={l.href} rel="noopener" class="link hover:text-ink">{l.text}</a>
+      ))}
+    </nav>
+  </div>
+</footer>

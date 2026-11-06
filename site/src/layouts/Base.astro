@@ -1,0 +1,98 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import Header from '~/components/Header.astro';
+import Footer from '~/components/Footer.astro';
+import { type Locale, DEFAULT_LOCALE, LOCALES, localePath, pathWithoutLocale, t } from '~/i18n';
+import '~/styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  lang?: Locale;
+}
+
+const { title, description, lang = DEFAULT_LOCALE } = Astro.props;
+
+const fullTitle = `${title} · Retail DWH`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+
+// The same page in every language, for hreflang. Built from the current path
+// with its locale prefix removed, so it stays correct on every route.
+const bare = pathWithoutLocale(Astro.url.pathname);
+const alternates = LOCALES.map((l) => ({
+  lang: l,
+  href: new URL(localePath(l, bare), Astro.site),
+}));
+
+// The faces present on every first paint. The rest load on demand through
+// unicode-range and font-display: swap.
+const subset = lang === 'uk' ? 'cyrillic' : 'latin';
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    {alternates.map((a) => <link rel="alternate" hreflang={a.lang} href={a.href} />)}
+    <link rel="alternate" hreflang="x-default" href={new URL(localePath(DEFAULT_LOCALE, bare), Astro.site)} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={lang === 'uk' ? 'uk_UA' : 'en_US'} />
+    <meta property="og:site_name" content="Retail DWH" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <link rel="preload" href={`/fonts/source-serif-4-400-${subset}.woff2`} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={`/fonts/source-sans-3-400-${subset}.woff2`} as="font" type="font/woff2" crossorigin />
+
+    <slot name="head" />
+
+    {/* Light is the default, so only an explicit dark choice is stamped,
+        applied before first paint to avoid a flash. */}
+    <script is:inline>
+      (() => {
+        const stored = localStorage.getItem('theme');
+        const dark = stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.dataset.theme = 'dark';
+      })();
+    </script>
+
+    <ClientRouter />
+  </head>
+
+  <body>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:bg-ink focus:px-3 focus:py-2 focus:text-paper"
+    >
+      {t(lang, 'skip')}
+    </a>
+
+    <Header lang={lang} />
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <Footer lang={lang} />
+
+    {/* ClientRouter swaps the document element's attributes, so the theme is
+        re-asserted after each swap. */}
+    <script is:inline>
+      document.addEventListener('astro:after-swap', () => {
+        const stored = localStorage.getItem('theme');
+        const dark = stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.dataset.theme = 'dark';
+        else delete document.documentElement.dataset.theme;
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+---
+interface Row {
+  label: string;
+  value: string;
+  kind?: 'sum' | 'warn';
+}
+
+interface Props {
+  rows: Row[];
+}
+const { rows } = Astro.props;
+---
+
+<div class="ledger">
+  {rows.map((row) => (
+    <div class:list={['ledger-row', row.kind === 'sum' && 'is-sum', row.kind === 'warn' && 'is-warn']}>
+      <span>{row.label}</span>
+      <i class="ledger-dots" aria-hidden="true"></i>
+      <span class="ledger-value">{row.value}</span>
+    </div>
+  ))}
+</div>

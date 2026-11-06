@@ -1,0 +1,265 @@
+---
+import Base from '~/layouts/Base.astro';
+import Ledger from '~/components/Ledger.astro';
+import { type Locale, localePath } from '~/i18n';
+import { formatter } from '~/lib/format';
+import { productCategory } from '~/report/labels';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const fmt = formatter(lang);
+
+const REPO = 'https://github.com/BilykS/retail-dwh/blob/main';
+
+const COPY = {
+  en: {
+    title: 'Decisions',
+    description: 'Five modelling decisions the numbers depend on, each with an example from the data.',
+    eyebrow: 'Decisions',
+    heading: 'Five decisions the numbers depend on',
+    lede: 'Every example comes from this data, and each one can be checked with a query.',
+
+    grain: 'What counts as a sale',
+    grainText: 'Cancelled orders are not loaded, because no sale happened. Returns go into the same fact with a minus sign. The original sale stays, because the money really was in the till that day.',
+    grainRows: ['rows in src.order_items', 'cancelled orders', 'in fact_sales', 'of which return rows'],
+    grainNote: 'A <code>status = \'completed\'</code> filter looks reasonable, but it would remove 13,146 rows: 6,573 sales and as many returns.',
+
+    keys: 'Keys as an md5 of the natural key',
+    keysText: 'In dbt, the dimension and the fact calculate a key with the same formula. Rebuilding from scratch does not change the keys, and the fact needs no joins to dimensions to get them.',
+    keysComment: '-1: anonymous customer',
+    keysNote: 'There are downsides. A text key takes more space than an <code>int</code>, and this formula cannot tell product versions apart. So <code>dbt_star.dim_product</code> holds only the current state (2,001 rows), and history lives only in the <code>star</code> schema.',
+
+    scd: 'Product history: SCD Type 2',
+    scdText: 'Name and category are versioned, and a sale points to the version in force on the day of the receipt. For example, <code>SKU-000218</code> moved from microwave ovens to refrigerators in December 2024, and its earlier sales stayed in the old category.',
+    scdAria: 'Three versions of product SKU-000218 on a timeline, with width proportional to the number of days',
+    until: 'until 2024-06-01',
+    between: '2024-06-02 to 2024-12-19',
+    since: 'from 2024-12-20, current',
+    rows: (n: number) => `${fmt.int(n)} rows`,
+    scdNote: 'There are 2,315 versions in total: 2,000 products and 315 changes. If version boundaries overlap, the fact inflates. If they leave a gap, sales go missing. So after loading I check the row count, which must be exactly 233,015.',
+
+    source: 'A second source and the direction of the link',
+    sourceText: 'The warehouse system has its own article codes. 60 articles (pallets, film) have no retail product, and 15 products have two warehouse cards. So I join only from article to product, which keeps rows from multiplying.',
+    sourceRows: ['stock, article, product', 'sale, product, article', 'revenue overstated by'],
+    asSource: 'matches the source',
+    extraRows: 'rows',
+    sourceNote: 'Articles without a product are kept, because they really do sit in the warehouse. Their 19,005 rows point to a separate "Not a retail product" row in <code>dim_product</code>.',
+
+    semi: 'Stock does not add up across dates',
+    semiText: 'The stock of the same product is recorded every day, so <code>sum()</code> over a period means nothing. Example: article <code>ART-00001</code> in the Eastern warehouse in Dnipro over 181 days.',
+    semiSum: '<code>sum()</code> over all days, a meaningless number',
+    semiDate: 'filtered to one date, stock on 2025-12-31',
+    semiAvg: '<code>avg()</code>, average stock over the period',
+    semiNote: 'The rule is written in <code>schema.yml</code>, so it also appears in the dbt docs. The Stock tab of the <a href="/report">report</a> shows how it works.',
+
+    next: 'Next: results',
+  },
+  uk: {
+    title: 'Рішення',
+    description: 'П’ять рішень у моделюванні, від яких залежать цифри, кожне з прикладом на даних.',
+    eyebrow: 'Рішення',
+    heading: 'П’ять рішень, від яких залежать цифри',
+    lede: 'Усі приклади взяті з цих даних, і кожен можна перевірити запитом.',
+
+    grain: 'Що вважати продажем',
+    grainText: 'Скасовані замовлення я не завантажую, бо продажу не було. Повернення йдуть у той самий факт із мінусом. Початковий продаж лишається, бо гроші того дня справді були в касі.',
+    grainRows: ['рядків у src.order_items', 'скасовані замовлення', 'у fact_sales', 'з них рядки повернень'],
+    grainNote: 'Фільтр <code>status = \'completed\'</code> виглядає логічно, але він прибрав би 13&nbsp;146 рядків: 6&nbsp;573 продажі й стільки ж повернень.',
+
+    keys: 'Ключі через md5 природного ключа',
+    keysText: 'У dbt вимір і факт рахують ключ за однією формулою. Перебудова з нуля не змінює ключів, а факту не потрібні join’и до вимірів, щоб їх отримати.',
+    keysComment: '-1: анонімний покупець',
+    keysNote: 'Є і мінуси. Текстовий ключ займає більше місця, ніж <code>int</code>, а така формула не розрізняє версій товару. Тому в <code>dbt_star.dim_product</code> лише поточний стан (2&nbsp;001 рядок), а історія є тільки в схемі <code>star</code>.',
+
+    scd: 'Історія змін товару: SCD Type 2',
+    scdText: 'Назва й категорія мають версії, а продаж посилається на ту версію, що діяла в день чека. Наприклад, <code>SKU-000218</code> у грудні 2024 перенесли з мікрохвильових печей у холодильники, а старі продажі лишились у старій категорії.',
+    scdAria: 'Три версії товару SKU-000218 на шкалі часу, ширина пропорційна кількості днів',
+    until: 'до 2024-06-01',
+    between: '2024-06-02 до 2024-12-19',
+    since: 'від 2024-12-20, поточна',
+    rows: (n: number) => `${fmt.int(n)} ${n === 41 ? 'рядок' : n === 24 ? 'рядки' : 'рядків'}`,
+    scdNote: 'Усього 2&nbsp;315 версій: 2&nbsp;000 товарів і 315 змін. Якщо межі версій перетнуться, факт роздується, а якщо між ними буде дірка, продажі загубляться. Тому після завантаження я перевіряю кількість рядків, їх має бути рівно 233&nbsp;015.',
+
+    source: 'Друге джерело і напрямок зв’язку',
+    sourceText: 'Склад використовує власні коди артикулів. 60 артикулів (палети, плівка) не мають роздрібного товару, а 15 товарів мають по дві складські картки. Тому я з’єдную тільки від артикула до товару, так рядки не множаться.',
+    sourceRows: ['залишок, артикул, товар', 'продаж, товар, артикул', 'виручка завищена на'],
+    asSource: 'як у джерелі',
+    extraRows: 'рядки',
+    sourceNote: 'Артикули без товару я не відкидаю, вони реально лежать на складі. Їхні 19&nbsp;005 рядків посилаються на окремий запис «Не товар роздрібу» у <code>dim_product</code>.',
+
+    semi: 'Залишки не складаються за датами',
+    semiText: 'Залишок того самого товару записується щодня, тому <code>sum()</code> за період не має сенсу. Приклад: артикул <code>ART-00001</code> на Східному складі в Дніпрі за 181 день.',
+    semiSum: '<code>sum()</code> за всі дні, число без сенсу',
+    semiDate: 'фільтр на дату, залишок на 2025-12-31',
+    semiAvg: '<code>avg()</code>, середній залишок за період',
+    semiNote: 'Це правило описане в <code>schema.yml</code>, тому воно є і в документації dbt. На вкладці «Запаси» у <a href="/uk/report">звіті</a> видно, як це працює.',
+
+    next: 'Далі: результати',
+  },
+}[lang];
+
+// flex values are the length of each version in days, so the widths are to scale.
+const VERSIONS = [
+  { days: 153, when: COPY.until, name: 'Yavir H-185 (old)', category: 'Мікрохвильові печі', changed: 'name', rows: 24, net: 1261096.72 },
+  { days: 201, when: COPY.between, name: 'Yavir H-185', category: 'Мікрохвильові печі', changed: 'name', rows: 41, net: 1791052.02 },
+  { days: 408, when: COPY.since, name: 'Yavir H-185', category: 'Холодильники', changed: 'category', rows: 66, net: 2748639.3 },
+];
+
+const SECTIONS = {
+  grain: `${REPO}/01_star/grain.md`,
+  keys: `${REPO}/06_dbt/models/fact_sales.sql`,
+  scd: `${REPO}/03_scd2/history.sql`,
+  source: `${REPO}/07_inventory/model.md`,
+  semi: `${REPO}/06_dbt/models/schema.yml`,
+};
+const srcLabel = (url: string) => url.replace(`${REPO}/`, '');
+---
+
+<Base title={COPY.title} description={COPY.description} lang={lang}>
+  <div class="shell page !gap-7">
+    <header class="flex flex-col gap-3.5 pb-4">
+      <p class="label">{COPY.eyebrow}</p>
+      <h1 class="display display-2">{COPY.heading}</h1>
+      <p class="lede">{COPY.lede}</p>
+    </header>
+
+    <article class="decision">
+      <div class="side">
+        <h2 class="display display-3">{COPY.grain}</h2>
+        <a class="link source" href={SECTIONS.grain}>{srcLabel(SECTIONS.grain)}</a>
+      </div>
+      <div class="content">
+        <p class="body">{COPY.grainText}</p>
+        <Ledger rows={[
+          { label: COPY.grainRows[0], value: fmt.int(236891) },
+          { label: COPY.grainRows[1], value: fmt.int(-3876) },
+          { label: COPY.grainRows[2], value: fmt.int(233015), kind: 'sum' },
+          { label: COPY.grainRows[3], value: fmt.int(6573) },
+        ]} />
+        <p class="note" set:html={COPY.grainNote} />
+      </div>
+    </article>
+
+    <article class="decision">
+      <div class="side">
+        <h2 class="display display-3">{COPY.keys}</h2>
+        <a class="link source" href={SECTIONS.keys}>{srcLabel(SECTIONS.keys)}</a>
+      </div>
+      <div class="content">
+        <p class="body">{COPY.keysText}</p>
+        <pre class="code-block">md5(i.product_id::text)                as product_key,
+md5(coalesce(o.customer_id, -1)::text) as customer_key  -- {COPY.keysComment}</pre>
+        <p class="note" set:html={COPY.keysNote} />
+      </div>
+    </article>
+
+    <article class="decision">
+      <div class="side">
+        <h2 class="display display-3">{COPY.scd}</h2>
+        <a class="link source" href={SECTIONS.scd}>{srcLabel(SECTIONS.scd)}</a>
+      </div>
+      <div class="content">
+        <p class="body" set:html={COPY.scdText} />
+        <div class="versions" role="img" aria-label={COPY.scdAria}>
+          {VERSIONS.map((v, i) => (
+            <div class:list={['version', i === VERSIONS.length - 1 && 'is-current']} style={`flex: ${v.days} 1 0`}>
+              <span class="version-date">{v.when}</span>
+              <span class:list={[v.changed === 'name' && 'font-semibold']}>{v.name}</span>
+              <span class:list={[v.changed === 'category' && 'font-semibold']}>{productCategory(lang, v.category)}</span>
+              <span class="version-num">{COPY.rows(v.rows)}<br />{fmt.dec(v.net, 2)}</span>
+            </div>
+          ))}
+        </div>
+        <p class="note" set:html={COPY.scdNote} />
+      </div>
+    </article>
+
+    <article class="decision">
+      <div class="side">
+        <h2 class="display display-3">{COPY.source}</h2>
+        <a class="link source" href={SECTIONS.source}>{srcLabel(SECTIONS.source)}</a>
+      </div>
+      <div class="content">
+        <p class="body">{COPY.sourceText}</p>
+        <Ledger rows={[
+          { label: COPY.sourceRows[0], value: `${fmt.int(254124)}, ${COPY.asSource}` },
+          { label: COPY.sourceRows[1], value: `${fmt.int(234758)}, +${fmt.int(1743)} ${COPY.extraRows}`, kind: 'warn' },
+          { label: COPY.sourceRows[2], value: fmt.dec(52161858.44, 2), kind: 'warn' },
+        ]} />
+        <p class="note" set:html={COPY.sourceNote} />
+      </div>
+    </article>
+
+    <article class="decision">
+      <div class="side">
+        <h2 class="display display-3">{COPY.semi}</h2>
+        <a class="link source" href={SECTIONS.semi}>{srcLabel(SECTIONS.semi)}</a>
+      </div>
+      <div class="content">
+        <p class="body" set:html={COPY.semiText} />
+        <div class="triple">
+          <div><b class="display is-wrong">{fmt.int(5760)}</b><span set:html={COPY.semiSum} /></div>
+          <div><b class="display">{fmt.int(43)}</b><span>{COPY.semiDate}</span></div>
+          <div><b class="display">{fmt.dec(31.8, 1)}</b><span set:html={COPY.semiAvg} /></div>
+        </div>
+        <p class="note" set:html={COPY.semiNote} />
+      </div>
+    </article>
+
+    <p class="next-link"><a class="link" href={localePath(lang, '/results')}>{COPY.next}</a></p>
+  </div>
+</Base>
+
+<style>
+  .decision {
+    display: grid;
+    grid-template-columns: minmax(0, 17.5rem) minmax(0, 1fr);
+    gap: 1rem 3rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--rule);
+  }
+  @media (max-width: 50rem) {
+    .decision { grid-template-columns: minmax(0, 1fr); }
+  }
+  .side { display: flex; flex-direction: column; gap: 0.625rem; align-items: flex-start; }
+  .source { font-size: 0.875rem; color: var(--ink-2); overflow-wrap: anywhere; }
+  .content { display: flex; flex-direction: column; gap: 1rem; }
+
+  .versions { display: flex; gap: 2px; }
+  .version {
+    background: var(--paper-sunk);
+    padding: 0.625rem 0.75rem 0.75rem;
+    border-top: 2px solid var(--rule-strong);
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    font-size: 0.9375rem;
+    line-height: 1.3;
+  }
+  .version.is-current { border-top-color: var(--ink); }
+  .version-date { font-size: 0.84375rem; color: var(--ink-2); }
+  .version-num {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+    padding-top: 0.25rem;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 40rem) {
+    .versions { flex-direction: column; }
+    .version { flex: none !important; }
+  }
+
+  .triple { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
+  .triple b { display: block; font-size: 2.5rem; line-height: 1.05; }
+  .triple b.is-wrong { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 2px; }
+  .triple span { display: block; font-size: 0.90625rem; line-height: 1.35; color: var(--ink-2); padding-top: 0.375rem; }
+  @media (max-width: 30rem) {
+    .triple { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .next-link { display: flex; justify-content: flex-end; font-family: var(--font-display); font-size: 1.375rem; padding-top: 1rem; }
+</style>

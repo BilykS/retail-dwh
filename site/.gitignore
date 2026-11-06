@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.astro/
+.vercel/
+
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+
+# NOTE on what is intentionally committed:
+#   public/fonts, public/data/report.json, src/styles/fonts.css
+# These are generated, but the deploy only runs `astro build` and has no access
+# to the warehouse. Committing them is what makes the build reproducible.

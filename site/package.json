@@ -1,0 +1,28 @@
+{
+  "name": "retail-dwh-site",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "node --test src/report/aggregate.test.ts",
+    "verify": "npm run check && npm test && astro build",
+    "fonts": "node scripts/fetch-fonts.mjs",
+    "data": "node scripts/build-report-data.mjs"
+  },
+  "dependencies": {
+    "astro": "6.4.8"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.6",
+    "tailwindcss": "4.3.3",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,124 @@
+---
+import Base from '~/layouts/Base.astro';
+import { type Locale, t } from '~/i18n';
+import { STORE_TYPES } from '~/report/labels';
+import '~/styles/report.css';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+
+const COPY = {
+  en: {
+    title: 'Report',
+    description: 'A clickable report on the retail warehouse: sales by month, category, region and store, and stock across warehouses.',
+    eyebrow: 'Report',
+    heading: 'A report you can click through',
+    intro: 'The measures are the ones from my Power BI model: margin, margin %, average check and comparison with last year. This page is written in JavaScript so the report opens without installing anything. Click a column or a row and the other charts filter to it.',
+    note: 'Sales come from the <code>star</code> schema, so a sale counts in the category the product had on that day, as in Power BI. Stock comes from <code>dbt_star</code>. The data is rolled up to month, store, channel and category, and amounts are rounded to whole hryvnias, which moves the totals by less than 200 UAH. Order counts are exact.',
+  },
+  uk: {
+    title: 'Звіт',
+    description: 'Інтерактивний звіт за даними сховища: продажі за місяцями, категоріями, областями й магазинами, залишки на складах.',
+    eyebrow: 'Звіт',
+    heading: 'Звіт, який можна поклікати',
+    intro: 'Міри ті самі, що в моїй моделі Power BI: маржа, маржа %, середній чек, порівняння з минулим роком. Сторінка написана на JavaScript, щоб звіт відкривався без встановлення. Натисніть на стовпчик або рядок, і решта графіків відфільтрується.',
+    note: 'Продажі беруться зі схеми <code>star</code>, тому продаж рахується в категорії, де товар був того дня, як і в Power BI. Залишки беруться з <code>dbt_star</code>. Дані згорнуті до рівня місяць, магазин, канал, категорія, а суми округлені до гривні, через що підсумки відрізняються від бази менш ніж на 200 грн. Кількість чеків точна.',
+  },
+}[lang];
+
+const storeTypes = Object.entries(STORE_TYPES[lang]);
+---
+
+<Base title={COPY.title} description={COPY.description} lang={lang}>
+  <link slot="head" rel="preload" href="/data/report.json" as="fetch" crossorigin />
+
+  <div class="shell page !gap-5">
+    <header class="flex flex-col gap-3.5">
+      <p class="label">{COPY.eyebrow}</p>
+      <h1 class="display display-2">{COPY.heading}</h1>
+      <p class="body">{COPY.intro}</p>
+    </header>
+
+    <section id="report" data-state="loading" aria-label={COPY.heading}>
+      <p class="bi-status bi-loading">{t(lang, 'report.loading')}</p>
+      <p class="bi-status bi-failed" role="alert">{t(lang, 'report.failed')}</p>
+      <noscript><p class="bi-status">{t(lang, 'report.noscript')}</p></noscript>
+
+      <div id="bi-sales" class="bi-page">
+        <div class="bi-title">
+          <h2 class="bi-name">{t(lang, 'report.tab.sales')}</h2>
+          <span class="slicer"><span class="bi-hint">{t(lang, 'report.year')}</span><span class="seg" id="s-year"></span></span>
+          <span class="slicer">
+            <label class="bi-hint" for="s-type">{t(lang, 'report.storeType')}</label>
+            <select id="s-type">
+              <option value="">{t(lang, 'report.all')}</option>
+              {storeTypes.map(([value, text]) => <option value={value}>{text}</option>)}
+            </select>
+          </span>
+        </div>
+        <div class="chips" id="s-chips"></div>
+        <div class="kpis" id="s-kpis"></div>
+        <div class="grid">
+          <div class="tile s8">
+            <h3>{t(lang, 'report.t.months')}</h3>
+            <div class="legend" id="l-month"></div>
+            <div class="chart" id="c-month"></div>
+          </div>
+          <div class="tile s4"><h3>{t(lang, 'report.t.categories')}</h3><div class="bars" id="c-cat"></div></div>
+          <div class="tile s4"><h3>{t(lang, 'report.t.regions')}</h3><div class="bars bars-tall" id="c-reg"></div></div>
+          <div class="tile s3"><h3>{t(lang, 'report.t.channels')}</h3><div class="bars" id="c-chan"></div></div>
+          <div class="tile s5"><h3>{t(lang, 'report.t.stores')}</h3><div class="tbl" id="c-store"></div></div>
+        </div>
+      </div>
+
+      <div id="bi-stock" class="bi-page" hidden>
+        <div class="bi-title">
+          <h2 class="bi-name">{t(lang, 'report.tab.stock')}</h2>
+          <span class="bi-hint" id="w-date"></span>
+        </div>
+        <div class="chips" id="w-chips"></div>
+        <div class="kpis" id="w-kpis"></div>
+        <div class="grid">
+          <div class="tile s8">
+            <h3>{t(lang, 'stock.t.days')}</h3>
+            <div class="chart" id="c-day"></div>
+            <p>{t(lang, 'stock.n.days')}</p>
+          </div>
+          <div class="tile s4">
+            <h3>{t(lang, 'stock.t.warehouses')}</h3>
+            <div class="bars" id="c-wh"></div>
+            <p>{t(lang, 'stock.n.warehouses')}</p>
+          </div>
+          <div class="tile s6">
+            <h3>{t(lang, 'stock.t.cover')}</h3>
+            <div class="legend">
+              <span><i style="background:var(--data-2)"></i>{t(lang, 'stock.l.short')}</span>
+              <span><i style="background:var(--data-1)"></i>{t(lang, 'stock.l.long')}</span>
+            </div>
+            <div class="bars" id="c-cover"></div>
+            <p>{t(lang, 'stock.n.cover')}</p>
+          </div>
+          <div class="tile s6"><h3>{t(lang, 'stock.t.low')}</h3><div class="tbl" id="c-low"></div></div>
+        </div>
+      </div>
+
+      <div class="bi-tabs" role="tablist" aria-label={t(lang, 'report.tabs')}>
+        <button type="button" role="tab" id="tab-sales" aria-controls="bi-sales" aria-selected="true">{t(lang, 'report.tab.sales')}</button>
+        <button type="button" role="tab" id="tab-stock" aria-controls="bi-stock" aria-selected="false">{t(lang, 'report.tab.stock')}</button>
+      </div>
+
+      <div id="bi-tip" role="tooltip" hidden></div>
+    </section>
+
+    <p class="note" set:html={COPY.note} />
+  </div>
+</Base>
+
+<script>
+  import { mountReport, unmountReport } from '~/report/report';
+
+  document.addEventListener('astro:page-load', mountReport);
+  document.addEventListener('astro:before-swap', unmountReport);
+</script>

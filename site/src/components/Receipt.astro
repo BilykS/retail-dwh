@@ -1,0 +1,242 @@
+---
+import { type Locale, DEFAULT_LOCALE } from '~/i18n';
+import { formatter } from '~/lib/format';
+
+interface Props {
+  lang?: Locale;
+}
+const { lang = DEFAULT_LOCALE } = Astro.props;
+const fmt = formatter(lang);
+
+// A real order from the warehouse: ORD-0061327. Keys are the first eight
+// characters of the md5 stored in fact_sales.
+const LINES = [
+  { id: 153489, name: 'Aurea F-500', key: '53c04118', qty: 3, gross: 2795.25, discount: 0, net: 2795.25, cost: 1961.64 },
+  { id: 153490, name: 'Lumica K-476', key: '310ce61c', qty: 1, gross: 256.02, discount: 0, net: 256.02, cost: 159.46 },
+  { id: 153491, name: 'Orbita I-486', key: '81dc9bdb', qty: 1, gross: 153.96, discount: 32.53, net: 121.43, cost: 106.97 },
+  { id: 153492, name: 'Zenko T-607', key: '79a49b3e', qty: 2, gross: 41268.96, discount: 0, net: 41268.96, cost: 30122.72 },
+];
+const SELECTED = 2;
+
+const COPY = {
+  en: {
+    aria: 'Receipt ORD-0061327 with four lines',
+    store: 'KHMELNYTSKYI STORE #6',
+    city: 'Khmelnytskyi',
+    receipt: 'RECEIPT',
+    when: '2025-10-01, 3 pm',
+    discountNote: 'discount',
+    subtotal: 'SUBTOTAL',
+    discount: 'DISCOUNT',
+    total: 'TOTAL, UAH',
+    payment: 'PAID BY',
+    card: 'CARD',
+    grain1: 'GRAIN OF THE MODEL: ONE RECEIPT LINE',
+    grain2: '4 lines = 4 rows in the fact table',
+    hint: 'Click another line on the receipt',
+    dims: 'Links to dimensions',
+    measures: 'Measures',
+  },
+  uk: {
+    aria: 'Чек ORD-0061327 із чотирма позиціями',
+    store: 'ТЦ ХМЕЛЬНИЦЬКИЙ №6',
+    city: 'м. Хмельницький',
+    receipt: 'ЧЕК',
+    when: '01.10.2025, 15 год',
+    discountNote: 'знижка',
+    subtotal: 'СУМА',
+    discount: 'ЗНИЖКА',
+    total: 'ДО СПЛАТИ, ГРН',
+    payment: 'ОПЛАТА',
+    card: 'КАРТКА',
+    grain1: 'ЗЕРНО МОДЕЛІ: ОДНА ПОЗИЦІЯ ЧЕКА',
+    grain2: '4 позиції = 4 рядки у факті',
+    hint: 'Натисніть інший рядок на чеку',
+    dims: 'Посилання на виміри',
+    measures: 'Міри',
+  },
+}[lang];
+
+const selected = LINES[SELECTED];
+const subtotal = LINES.reduce((a, l) => a + l.gross, 0);
+const discount = LINES.reduce((a, l) => a + l.discount, 0);
+const total = LINES.reduce((a, l) => a + l.net, 0);
+
+// Pre-formatted, so the script only swaps text and needs no locale logic.
+const values = LINES.map((l) => ({
+  id: String(l.id),
+  key: `${l.key}...`,
+  qty: String(l.qty),
+  gross: fmt.dec(l.gross, 2),
+  discount: fmt.dec(l.discount, 2),
+  net: fmt.dec(l.net, 2),
+  cost: fmt.dec(l.cost, 2),
+}));
+---
+
+<div class="receipt-block">
+  <div class="receipt-intro"><slot /></div>
+
+  <div class="receipt-col">
+    <div class="receipt" id="receipt" aria-label={COPY.aria} data-lines={JSON.stringify(values)}>
+      <div class="r-head"><b>{COPY.store}</b><span>{COPY.city}</span></div>
+      <hr class="r-rule" />
+      <div class="r-meta"><span>{COPY.receipt} ORD-0061327</span><span>{COPY.when}</span></div>
+      <hr class="r-rule" />
+      <div class="r-lines">
+        {LINES.map((l, i) => (
+          <button type="button" class="rline" data-line={i} aria-pressed={i === SELECTED ? 'true' : 'false'}>
+            <span>{l.name}</span>
+            <span class="amt">{fmt.dec(l.net, 2)}</span>
+            <small>{l.qty} x {fmt.dec(l.gross / l.qty, 2)}{l.discount > 0 && `, ${COPY.discountNote} ${fmt.dec(l.discount, 2)}`}</small>
+          </button>
+        ))}
+      </div>
+      <hr class="r-rule" />
+      <div class="r-sum"><span>{COPY.subtotal}</span><span>{fmt.dec(subtotal, 2)}</span></div>
+      <div class="r-sum"><span>{COPY.discount}</span><span>-{fmt.dec(discount, 2)}</span></div>
+      <div class="r-sum total"><span>{COPY.total}</span><span>{fmt.dec(total, 2)}</span></div>
+      <div class="r-sum"><span>{COPY.payment}</span><span>{COPY.card}</span></div>
+      <hr class="r-rule" />
+      <div class="r-head r-foot"><span>{COPY.grain1}</span><span>{COPY.grain2}</span></div>
+    </div>
+  </div>
+
+  <div class="fact-row" aria-live="polite">
+    <div class="fact-head">
+      <span class="fact-name">fact_sales, order_item_id <span data-f="id">{selected.id}</span></span>
+      <span class="note">{COPY.hint}</span>
+    </div>
+    <div class="fact-grid">
+      <div>
+        <p class="label fact-title">{COPY.dims}</p>
+        <dl class="kv">
+          <dt>date_key</dt><dd>20251001</dd>
+          <dt>product_key</dt><dd data-f="key">{selected.key}...</dd>
+          <dt>store_key</dt><dd>1679091c...</dd>
+          <dt>customer_key</dt><dd>c590b9fa...</dd>
+          <dt>transaction_type_key</dt><dd>df8ffbe2...</dd>
+          <dt>order_number</dt><dd>ORD-0061327</dd>
+        </dl>
+      </div>
+      <div>
+        <p class="label fact-title">{COPY.measures}</p>
+        <dl class="kv">
+          <dt>quantity</dt><dd data-f="qty">{selected.qty}</dd>
+          <dt>gross_amount</dt><dd data-f="gross">{fmt.dec(selected.gross, 2)}</dd>
+          <dt>discount_amount</dt><dd data-f="discount">{fmt.dec(selected.discount, 2)}</dd>
+          <dt>net_amount</dt><dd data-f="net">{fmt.dec(selected.net, 2)}</dd>
+          <dt>cost_amount</dt><dd data-f="cost">{fmt.dec(selected.cost, 2)}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .receipt-block {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+    grid-template-areas: 'intro receipt' 'fact receipt';
+    gap: 1.875rem 3rem;
+    align-items: start;
+  }
+  .receipt-intro { grid-area: intro; }
+  .receipt-col { grid-area: receipt; filter: drop-shadow(0 2px 8px var(--receipt-shadow)); }
+  .fact-row { grid-area: fact; }
+  @media (max-width: 55rem) {
+    .receipt-block {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'intro' 'receipt' 'fact';
+    }
+    .receipt-col { max-width: 25rem; }
+  }
+
+  .receipt {
+    background: var(--receipt);
+    color: var(--receipt-ink);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    padding: 1.25rem 0.5rem 1.875rem;
+    -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 16px 100%;
+    mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 16px 100%;
+  }
+  /* Starts partly visible on purpose: the receipt must never be blank if the
+     animation is frozen, as it is in a screenshot or a background tab. */
+  :global(.receipt.is-printing) { animation: feed 0.8s steps(12); }
+  @keyframes feed {
+    from { clip-path: inset(0 0 45% 0); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+
+  .r-head { text-align: center; padding-inline: 0.625rem; display: flex; flex-direction: column; }
+  .r-head b { font-weight: 500; font-size: 0.875rem; }
+  .r-foot { font-size: 0.75rem; }
+  .r-rule { border: 0; border-top: 1px dashed var(--receipt-ink-2); margin: 0.75rem 0.625rem; }
+  .r-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; padding-inline: 0.625rem; color: var(--receipt-ink-2); font-size: 0.75rem; }
+  .r-lines { display: flex; flex-direction: column; }
+
+  .rline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 0.75rem;
+    width: 100%;
+    padding: 0.375rem 0.625rem;
+    text-align: left;
+    color: var(--receipt-ink);
+    transition: background-color 0.12s ease;
+  }
+  .rline small { grid-column: 1; font-size: 0.71875rem; color: var(--receipt-ink-2); }
+  .rline .amt { grid-row: 1 / span 2; grid-column: 2; align-self: start; font-variant-numeric: tabular-nums; }
+  .rline:hover { background: rgb(42 63 208 / 0.09); }
+  .rline[aria-pressed='true'] { background: #2a3fd0; color: #ffffff; }
+  .rline[aria-pressed='true'] small { color: #d7dcfa; }
+
+  .r-sum { display: flex; justify-content: space-between; gap: 0.75rem; padding: 1px 0.625rem; font-variant-numeric: tabular-nums; }
+  .r-sum.total { font-weight: 500; font-size: 0.875rem; padding-top: 0.3125rem; }
+
+  .fact-row { border-top: 1px solid var(--rule-strong); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.875rem; }
+  .fact-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.125rem 1rem; }
+  .fact-name { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 500; }
+  .fact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.75rem; }
+  .fact-title { padding-bottom: 0.3125rem; border-bottom: 1px solid var(--rule); margin-bottom: 0.3125rem; }
+  @media (max-width: 35rem) {
+    .fact-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 0.625rem; font-family: var(--font-mono); font-size: 0.78125rem; line-height: 1.75; }
+  .kv dt { color: var(--ink-2); overflow-wrap: anywhere; }
+  .kv dd { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+
+<script>
+  // Prints once per session rather than on every return to the overview.
+  let printed = false;
+
+  function wire() {
+    const receipt = document.getElementById('receipt');
+    if (!receipt || receipt.dataset.wired) return;
+    receipt.dataset.wired = 'true';
+
+    if (!printed) {
+      printed = true;
+      receipt.classList.add('is-printing');
+      receipt.addEventListener('animationend', () => receipt.classList.remove('is-printing'), { once: true });
+    }
+
+    const values: Record<string, string>[] = JSON.parse(receipt.dataset.lines!);
+    const buttons = receipt.querySelectorAll<HTMLButtonElement>('.rline');
+
+    buttons.forEach((button, i) => {
+      button.addEventListener('click', () => {
+        buttons.forEach((b, k) => b.setAttribute('aria-pressed', String(k === i)));
+        document.querySelectorAll<HTMLElement>('[data-f]').forEach((el) => {
+          el.textContent = values[i][el.dataset.f!];
+        });
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', wire);
+</script>

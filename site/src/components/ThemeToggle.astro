@@ -1,0 +1,40 @@
+---
+import { type Locale, DEFAULT_LOCALE, t } from '~/i18n';
+
+interface Props {
+  lang?: Locale;
+}
+const { lang = DEFAULT_LOCALE } = Astro.props;
+---
+
+{/* Targeted by class, not id: the header renders one copy for mobile and one
+    for desktop, and duplicate ids would leave the second one dead. */}
+<button
+  type="button"
+  class="js-theme-toggle label transition-colors hover:text-ink"
+  aria-label={t(lang, 'theme.label')}
+>
+  <span class="light-only">{t(lang, 'theme.toDark')}</span>
+  <span class="dark-only">{t(lang, 'theme.toLight')}</span>
+</button>
+
+<style>
+  :global(html[data-theme='dark']) .light-only { display: none; }
+  :global(html:not([data-theme='dark'])) .dark-only { display: none; }
+</style>
+
+<script>
+  // Buttons are re-created on every navigation, so wiring runs per page-load.
+  function wire() {
+    document.querySelectorAll<HTMLButtonElement>('.js-theme-toggle').forEach((btn) => {
+      if (btn.dataset.wired) return;
+      btn.dataset.wired = 'true';
+      btn.addEventListener('click', () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        localStorage.setItem('theme', next);
+      });
+    });
+  }
+  document.addEventListener('astro:page-load', wire);
+</script>

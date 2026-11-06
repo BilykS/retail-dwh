@@ -1,0 +1,178 @@
+---
+import ThemeToggle from './ThemeToggle.astro';
+import {
+  type Locale,
+  DEFAULT_LOCALE,
+  LOCALES,
+  LOCALE_SHORT,
+  LOCALE_NAMES,
+  localePath,
+  pathWithoutLocale,
+  t,
+} from '~/i18n';
+
+interface Props {
+  lang?: Locale;
+}
+const { lang = DEFAULT_LOCALE } = Astro.props;
+
+const nav = [
+  { path: '/', label: t(lang, 'nav.overview') },
+  { path: '/report', label: t(lang, 'nav.report') },
+  { path: '/model', label: t(lang, 'nav.model') },
+  { path: '/decisions', label: t(lang, 'nav.decisions') },
+  { path: '/results', label: t(lang, 'nav.results') },
+];
+
+// Same page in the other language, so switching never dumps the reader home.
+const bare = pathWithoutLocale(Astro.url.pathname);
+const isActive = (path: string) => bare === path;
+---
+
+{/* Deliberately NOT transition:persist. A persisted header keeps its original
+    DOM across client-side navigations, so aria-current and the active-link
+    styling stay frozen on whichever page was loaded first. */}
+<header class="relative border-b border-rule">
+  <div class="shell flex h-16 items-center gap-6">
+    <a
+      href={localePath(lang, '/')}
+      class="font-display text-[1.0625rem] text-ink decoration-rule-strong underline-offset-4 hover:underline"
+    >
+      Retail DWH
+    </a>
+
+    {/* Desktop: everything on one line. */}
+    <div class="ml-auto hidden items-baseline gap-5 md:flex">
+      <nav class="flex items-baseline gap-5" aria-label={t(lang, 'nav.main')}>
+        {nav.map((item) => (
+          <a
+            href={localePath(lang, item.path)}
+            aria-current={isActive(item.path) ? 'page' : undefined}
+            class:list={[
+              'text-[0.9375rem] whitespace-nowrap transition-colors',
+              isActive(item.path)
+                ? 'text-ink underline decoration-ink underline-offset-[5px]'
+                : 'text-ink-2 hover:text-ink',
+            ]}
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+
+      <span class="h-3 w-px self-center bg-rule-strong" aria-hidden="true"></span>
+
+      <nav class="flex items-baseline gap-1.5" aria-label={t(lang, 'nav.language')}>
+        {LOCALES.map((l) => (
+          <a
+            href={localePath(l, bare)}
+            hreflang={l}
+            lang={l}
+            title={LOCALE_NAMES[l]}
+            aria-current={l === lang ? 'true' : undefined}
+            class:list={['label transition-colors', l === lang ? '!text-ink' : 'hover:text-ink']}
+          >
+            {LOCALE_SHORT[l]}
+          </a>
+        ))}
+      </nav>
+
+      <ThemeToggle lang={lang} />
+    </div>
+
+    {/* Mobile: a disclosure panel. Built on <details> so it opens and closes
+        without JavaScript; the script below only adds Escape and click-outside. */}
+    <details class="menu ml-auto md:hidden">
+      <summary aria-label={t(lang, 'nav.menu')}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+          <g class="bars"><path d="M4 7h16M4 12h16M4 17h16" /></g>
+          <g class="cross"><path d="M6 6l12 12M18 6L6 18" /></g>
+        </svg>
+      </summary>
+
+      <div class="panel">
+        <nav class="flex flex-col" aria-label={t(lang, 'nav.main')}>
+          {nav.map((item) => (
+            <a
+              href={localePath(lang, item.path)}
+              aria-current={isActive(item.path) ? 'page' : undefined}
+              class:list={[
+                'border-b border-rule py-3 text-base transition-colors',
+                isActive(item.path) ? 'text-ink' : 'text-ink-2',
+              ]}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+
+        <div class="flex items-baseline justify-between pt-4">
+          <nav class="flex items-baseline gap-3" aria-label={t(lang, 'nav.language')}>
+            {LOCALES.map((l) => (
+              <a
+                href={localePath(l, bare)}
+                hreflang={l}
+                lang={l}
+                title={LOCALE_NAMES[l]}
+                aria-current={l === lang ? 'true' : undefined}
+                class:list={['label transition-colors', l === lang ? '!text-ink' : '']}
+              >
+                {LOCALE_SHORT[l]}
+              </a>
+            ))}
+          </nav>
+          <ThemeToggle lang={lang} />
+        </div>
+      </div>
+    </details>
+  </div>
+</header>
+
+<style>
+  .menu summary {
+    list-style: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-right: -0.5rem;
+    color: var(--ink-2);
+  }
+  .menu summary::-webkit-details-marker { display: none; }
+  .menu summary:hover { color: var(--ink); }
+  .menu summary svg { width: 1.375rem; height: 1.375rem; }
+
+  .menu .cross { display: none; }
+  .menu[open] .bars { display: none; }
+  .menu[open] .cross { display: block; }
+
+  /* Overlays the page instead of pushing it down, so opening the menu does not
+     shift what the reader was looking at. */
+  .panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 40;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    padding: 0.25rem 1rem 1.25rem;
+    box-shadow: 0 12px 24px -18px rgb(0 0 0 / 0.35);
+  }
+</style>
+
+<script>
+  // Progressive enhancement only: the panel already opens and closes on its own.
+  // The document-level listeners are added once. They look the menu up each
+  // time, because ClientRouter replaces the header on every navigation.
+  const currentMenu = () => document.querySelector<HTMLDetailsElement>('header .menu');
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') currentMenu()?.removeAttribute('open');
+  });
+  document.addEventListener('click', (e) => {
+    const menu = currentMenu();
+    if (menu?.open && !menu.contains(e.target as Node)) menu.removeAttribute('open');
+  });
+</script>

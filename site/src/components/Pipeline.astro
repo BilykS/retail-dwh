@@ -1,0 +1,116 @@
+---
+import { type Locale, DEFAULT_LOCALE } from '~/i18n';
+
+interface Props {
+  lang?: Locale;
+}
+const { lang = DEFAULT_LOCALE } = Astro.props;
+
+const COPY = {
+  en: {
+    aria: 'Two source systems feed dbt, which builds the dbt_star schema. A separate hand-written SQL ETL builds the star and snow schemas. The star and dbt_star schemas are reconciled against each other. Power BI reads star, and stock_cover lives in dbt_star.',
+    sources: 'Sources',
+    transforms: 'Transformations',
+    schemas: 'Schemas',
+    output: 'Output',
+    wms: 'warehouse, 3 tables',
+    src: 'retail, 11 tables',
+    dbt: '11 models, 76 tests',
+    etl: 'manual SQL ETL',
+    etlNote: 'separate build',
+    dbtStar: 'two facts, 7 dimensions',
+    star: 'one fact, SCD Type 2',
+    snow: 'normalised dimensions',
+    cover: 'days of cover',
+    bi: 'DAX, year over year',
+    builds: 'builds',
+    reconcile: 'reconciled, diff 0.00',
+  },
+  uk: {
+    aria: 'Дві системи-джерела живлять dbt, який будує схему dbt_star. Окремий ручний SQL ETL будує схеми star і snow. Схеми star і dbt_star звіряються між собою. Power BI читає star, а stock_cover лежить у dbt_star.',
+    sources: 'Джерела',
+    transforms: 'Трансформації',
+    schemas: 'Схеми',
+    output: 'Результат',
+    wms: 'склад, 3 таблиці',
+    src: 'роздріб, 11 таблиць',
+    dbt: '11 моделей, 76 тестів',
+    etl: 'ручний SQL ETL',
+    etlNote: 'окрема реалізація',
+    dbtStar: 'два факти, 7 вимірів',
+    star: 'один факт, SCD Type 2',
+    snow: 'нормалізовані виміри',
+    cover: 'дні запасу на товар',
+    bi: 'DAX, рік до року',
+    builds: 'будує',
+    reconcile: 'звірка, різниця 0,00',
+  },
+}[lang];
+
+const ARROWS = [
+  'M170 72H280',
+  'M170 150H225V124H280',
+  'M170 170H225V246H280',
+  'M440 102H550',
+  'M440 232H550',
+  'M440 262H495V286H550',
+  'M710 102H780',
+  'M710 218H780',
+];
+
+const BOXES = [
+  { x: 20, y: 40, w: 150, h: 64, title: 'wms', note: COPY.wms },
+  { x: 20, y: 130, w: 150, h: 64, title: 'src', note: COPY.src },
+  { x: 280, y: 60, w: 160, h: 84, title: 'dbt', note: COPY.dbt },
+  { x: 280, y: 214, w: 160, h: 64, title: COPY.etl, note: COPY.etlNote },
+  { x: 550, y: 60, w: 160, h: 84, title: 'dbt_star', note: COPY.dbtStar },
+  { x: 550, y: 190, w: 160, h: 56, title: 'star', note: COPY.star },
+  { x: 550, y: 262, w: 160, h: 50, title: 'snow', note: COPY.snow },
+  { x: 780, y: 60, w: 150, h: 84, title: 'stock_cover', note: COPY.cover },
+  { x: 780, y: 190, w: 150, h: 56, title: 'Power BI', note: COPY.bi },
+];
+---
+
+<div class="scroll-x">
+  <svg class="pipeline" viewBox="0 0 940 322" role="img" aria-label={COPY.aria}>
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="currentColor" />
+      </marker>
+    </defs>
+
+    <text class="heading" x="20" y="20">{COPY.sources}</text>
+    <text class="heading" x="280" y="20">{COPY.transforms}</text>
+    <text class="heading" x="550" y="20">{COPY.schemas}</text>
+    <text class="heading" x="780" y="20">{COPY.output}</text>
+
+    {ARROWS.map((d) => <path class="edge" d={d} marker-end="url(#arrow)" />)}
+    <path class="compare" d="M630 150V184" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+
+    {BOXES.map((b) => {
+      const mid = b.y + b.h / 2;
+      return (
+        <g>
+          <rect class="box" x={b.x} y={b.y} width={b.w} height={b.h} />
+          <text class="title" x={b.x + 14} y={mid - 4}>{b.title}</text>
+          <text class="sub" x={b.x + 14} y={mid + 15}>{b.note}</text>
+        </g>
+      );
+    })}
+
+    <text class="sub" x="495" y="94" text-anchor="middle">{COPY.builds}</text>
+    <text class="sub" x="495" y="224" text-anchor="middle">{COPY.builds}</text>
+    <text class="strong" x="640" y="172">{COPY.reconcile}</text>
+  </svg>
+</div>
+
+<style>
+  .pipeline { display: block; width: 100%; height: auto; min-width: 48.75rem; color: var(--ink); }
+  .box { fill: var(--paper-raised); stroke: var(--rule-strong); stroke-width: 1; }
+  .edge { fill: none; stroke: var(--rule-strong); stroke-width: 1.25; }
+  .compare { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .heading { font: 500 11px var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; fill: var(--ink-2); }
+  .title { font: 500 13px var(--font-mono); fill: var(--ink); }
+  .sub { font: 400 13.5px var(--font-text); fill: var(--ink-2); }
+  .strong { font: 600 13.5px var(--font-text); fill: var(--ink); }
+</style>

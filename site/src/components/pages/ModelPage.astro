@@ -1,0 +1,277 @@
+---
+import Base from '~/layouts/Base.astro';
+import { type Locale, localePath } from '~/i18n';
+import { formatter } from '~/lib/format';
+import { EDGES, TABLES } from '~/data/tables';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const fmt = formatter(lang);
+
+const COPY = {
+  en: {
+    title: 'Model',
+    description: 'Two fact tables of different types on shared dimensions: a transaction fact for sales and a periodic snapshot for stock.',
+    eyebrow: 'Model',
+    heading: 'Two fact tables on shared dimensions',
+    lede: 'Sales record an event, stock records the state of a warehouse on a day. The shared <code>dim_date</code> and <code>dim_product</code> let them sit side by side.',
+    salesKind: 'Transaction fact',
+    salesGrain: '<b>Grain:</b> one receipt line, 233,015 rows.',
+    salesText: 'Every measure adds up across any dimension. Returns sit in the same fact with a negative quantity, so net revenue is a plain <code>sum(net_amount)</code>.',
+    stockKind: 'Periodic snapshot',
+    stockGrain: '<b>Grain:</b> stock of one article in one warehouse on one day, 254,124 rows over 181 days.',
+    stockText: 'Measures add up across products and warehouses, but not across dates. Three days are missing from the source, and they are missing from the fact too.',
+    caption: 'Click a table to see its columns. Solid lines are keys. The dashed lines lead to <code>stock_cover</code>: each fact is first aggregated to product level, and only then are the results joined.',
+    aggregate: 'aggregated by product',
+    shared: 'shared',
+    bothFacts: 'both facts',
+    columns: 'Columns',
+    matrix: 'Dimension matrix',
+    matrixNote: 'A dimension marked in both columns is shared by the two facts, so they can be compared through it.',
+    dimension: 'Dimension',
+    rowsCol: 'Rows',
+    yes: 'yes',
+    next: 'Next: decisions',
+    diagram: 'Model diagram. Choose a table to see its columns.',
+  },
+  uk: {
+    title: 'Модель',
+    description: 'Два факти різного типу на спільних вимірах: транзакційний факт для продажів і періодичний зріз для залишків.',
+    eyebrow: 'Модель',
+    heading: 'Два факти на спільних вимірах',
+    lede: 'Продажі записують подію, залишки записують стан складу на день. Спільні <code>dim_date</code> і <code>dim_product</code> дозволяють поставити їх поруч.',
+    salesKind: 'Транзакційний факт',
+    salesGrain: '<b>Зерно:</b> одна позиція чека, 233&nbsp;015 рядків.',
+    salesText: 'Усі міри можна складати за будь-яким виміром. Повернення лежать у цьому ж факті з від’ємною кількістю, тому чиста виручка рахується звичайним <code>sum(net_amount)</code>.',
+    stockKind: 'Періодичний зріз',
+    stockGrain: '<b>Зерно:</b> залишок одного артикула на одному складі за один день, 254&nbsp;124 рядки за 181 день.',
+    stockText: 'Міри складаються за товарами й складами, але не за датами. У джерелі немає трьох днів, у факті їх теж немає.',
+    caption: 'Натисніть на таблицю, щоб побачити її колонки. Суцільні лінії це ключі. Пунктир веде до <code>stock_cover</code>: кожен факт спочатку агрегується до рівня товару, а вже потім результати з’єднуються.',
+    aggregate: 'агрегат за товаром',
+    shared: 'спільний',
+    bothFacts: 'обидва факти',
+    columns: 'Колонки',
+    matrix: 'Матриця вимірів',
+    matrixNote: 'Вимір із позначками в обох колонках спільний для двох фактів, за ним їх можна зіставляти.',
+    dimension: 'Вимір',
+    rowsCol: 'Рядків',
+    yes: 'так',
+    next: 'Далі: рішення',
+    diagram: 'Схема моделі. Оберіть таблицю, щоб побачити її колонки.',
+  },
+}[lang];
+
+const SELECTED = 'fact_sales';
+const dimensions = TABLES.filter((t) => t.usedBy);
+
+/** "2,001 rows" in English; Ukrainian picks the form from the last digits. */
+const withRows = (n: number) => {
+  if (lang === 'en') return `${fmt.int(n)} rows`;
+  const tens = n % 100, ones = n % 10;
+  const word = ones === 1 && tens !== 11 ? 'рядок' : ones >= 2 && ones <= 4 && (tens < 12 || tens > 14) ? 'рядки' : 'рядків';
+  return `${fmt.int(n)} ${word}`;
+};
+
+const subtitle = (t: (typeof TABLES)[number]) => {
+  const rows = fmt.int(t.rows);
+  if (t.fact) return withRows(t.rows);
+  if (t.usedBy?.sales && t.usedBy.inventory) return `${COPY.shared}, ${rows}`;
+  if (!t.usedBy) return `${COPY.bothFacts}, ${rows}`;
+  return rows;
+};
+---
+
+<Base title={COPY.title} description={COPY.description} lang={lang}>
+  <div class="shell page">
+    <header class="flex flex-col gap-3.5">
+      <p class="label">{COPY.eyebrow}</p>
+      <h1 class="display display-2">{COPY.heading}</h1>
+      <p class="lede" set:html={COPY.lede} />
+    </header>
+
+    <div class="grid gap-8 md:grid-cols-2 md:gap-12">
+      <div class="flex flex-col gap-2 border-t border-rule-strong pt-3.5">
+        <h2 class="num text-base font-medium">fact_sales</h2>
+        <p class="label">{COPY.salesKind}</p>
+        <p class="body" set:html={COPY.salesGrain} />
+        <p class="body" set:html={COPY.salesText} />
+      </div>
+      <div class="flex flex-col gap-2 border-t border-rule-strong pt-3.5">
+        <h2 class="num text-base font-medium">fact_inventory</h2>
+        <p class="label">{COPY.stockKind}</p>
+        <p class="body" set:html={COPY.stockGrain} />
+        <p class="body" set:html={COPY.stockText} />
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-5">
+      <figure class="flex flex-col gap-3">
+        <div class="scroll-x">
+          <svg class="star" id="star" viewBox="0 0 960 470" role="group" aria-label={COPY.diagram}>
+            {EDGES.map((e) => (
+              <path
+                class:list={['edge', e.drill && 'drill', (e.a === SELECTED || e.b === SELECTED) && 'on']}
+                data-a={e.a}
+                data-b={e.b}
+                d={e.d}
+              />
+            ))}
+            <text class="sub" x="308" y="384">{COPY.aggregate}</text>
+            <text class="sub" x="662" y="384" text-anchor="end">{COPY.aggregate}</text>
+            {TABLES.map((t) => (
+              <g class:list={['node', t.fact && 'fact', t.name === SELECTED && 'sel']} data-t={t.name} tabindex="0" role="button" aria-label={t.name}>
+                <rect x={t.x} y={t.y} width={t.w} height={t.h} />
+                <text
+                  class:list={['title', t.name === 'dim_transaction_type' && 'title-long']}
+                  x={t.x + t.w / 2}
+                  y={t.y + t.h / 2 - 3}
+                  text-anchor="middle"
+                >{t.name}</text>
+                <text class="sub" x={t.x + t.w / 2} y={t.y + t.h / 2 + 15} text-anchor="middle">{subtitle(t)}</text>
+              </g>
+            ))}
+          </svg>
+        </div>
+        <figcaption class="note" set:html={COPY.caption} />
+      </figure>
+
+      {/* Every panel is rendered up front, so nothing here depends on script-held
+          copy in two languages. The script only switches which one shows. */}
+      <div aria-live="polite">
+        {TABLES.map((t) => (
+          <div class="panel" data-panel={t.name} hidden={t.name !== SELECTED}>
+            <div class="flex flex-col gap-1.5">
+              <h2 class="num text-base font-medium">{t.name}</h2>
+              <p class="label">{t.kind[lang]}, {withRows(t.rows)}</p>
+              <p class="body">{t.note[lang]}</p>
+            </div>
+            <div class="flex flex-col gap-2">
+              <p class="label">{COPY.columns}</p>
+              <div class="flex flex-wrap gap-x-1.5 gap-y-1">
+                {t.keys.map((c) => <span class="col is-key">{c}</span>)}
+                {t.columns.map((c) => <span class="col">{c}</span>)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <section class="flex flex-col gap-4">
+      <h2 class="display display-3">{COPY.matrix}</h2>
+      <p class="note">{COPY.matrixNote}</p>
+      <div class="scroll-x">
+        <table class="table matrix min-w-[32.5rem]" id="matrix">
+          <thead>
+            <tr>
+              <th>{COPY.dimension}</th>
+              <th class="n">{COPY.rowsCol}</th>
+              <th class="c">fact_sales</th>
+              <th class="c">fact_inventory</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dimensions.map((t) => (
+              <tr data-t={t.name}>
+                <td><button type="button" class="num text-[0.78125rem]">{t.name}</button></td>
+                <td class="n">{fmt.int(t.rows)}</td>
+                <td class="c">{t.usedBy?.sales && <span class="dot" role="img" aria-label={COPY.yes}></span>}</td>
+                <td class="c">{t.usedBy?.inventory && <span class="dot" role="img" aria-label={COPY.yes}></span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="next-link"><a class="link" href={localePath(lang, '/decisions')}>{COPY.next}</a></p>
+  </div>
+</Base>
+
+<style>
+  .star { display: block; width: 100%; height: auto; min-width: 47.5rem; }
+  .title { font: 500 13px var(--font-mono); fill: var(--ink); }
+  .title-long { font-size: 12.5px; }
+  .sub { font: 400 13.5px var(--font-text); fill: var(--ink-2); }
+
+  .edge { fill: none; stroke: var(--rule-strong); stroke-width: 1.25; transition: stroke 0.12s ease; }
+  .edge.on { stroke: var(--ink); stroke-width: 2; }
+  .edge.drill { stroke-dasharray: 5 4; }
+
+  .node { cursor: pointer; }
+  .node rect { fill: var(--paper-raised); stroke: var(--rule-strong); stroke-width: 1; transition: fill 0.12s ease; }
+  .node:hover rect { fill: var(--paper-sunk); }
+  .node.fact rect { fill: var(--paper-sunk); stroke: var(--ink); stroke-width: 1.5; }
+  .node.sel rect, .node.fact.sel rect { fill: var(--ink); stroke: var(--ink); }
+  .node.sel .title, .node.sel .sub { fill: var(--paper); }
+  .node:focus-visible { outline: none; }
+  .node:focus-visible rect { stroke: var(--ink); stroke-width: 3; }
+
+  .panel {
+    background: var(--paper-sunk);
+    padding: 1.25rem 1.375rem;
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 1rem 2rem;
+  }
+  .panel[hidden] { display: none; }
+  @media (max-width: 45rem) {
+    .panel { grid-template-columns: minmax(0, 1fr); }
+  }
+  .col {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    padding: 1px 0.4375rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    overflow-wrap: anywhere;
+  }
+  .col.is-key { border-color: var(--rule-strong); font-weight: 500; }
+
+  .matrix tbody tr { cursor: pointer; }
+  .matrix tbody tr:hover, .matrix tbody tr.sel { background: var(--paper-sunk); }
+  .matrix tr.sel button { font-weight: 500; }
+  .dot { display: inline-block; width: 0.5625rem; height: 0.5625rem; border-radius: 50%; background: var(--ink); }
+
+  .next-link { display: flex; justify-content: flex-end; font-family: var(--font-display); font-size: 1.375rem; }
+</style>
+
+<script>
+  function wire() {
+    const star = document.getElementById('star');
+    if (!star || star.dataset.wired) return;
+    star.dataset.wired = 'true';
+    const matrix = document.getElementById('matrix')!;
+
+    const select = (name: string) => {
+      star.querySelectorAll('.node').forEach((n) => n.classList.toggle('sel', n.getAttribute('data-t') === name));
+      star.querySelectorAll('.edge').forEach((e) =>
+        e.classList.toggle('on', e.getAttribute('data-a') === name || e.getAttribute('data-b') === name),
+      );
+      document.querySelectorAll<HTMLElement>('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+      matrix.querySelectorAll('tbody tr').forEach((r) => r.classList.toggle('sel', r.getAttribute('data-t') === name));
+    };
+
+    star.addEventListener('click', (e) => {
+      const node = (e.target as Element).closest('.node');
+      if (node) select(node.getAttribute('data-t')!);
+    });
+    star.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const node = (e.target as Element).closest('.node');
+      if (node) {
+        e.preventDefault();
+        select(node.getAttribute('data-t')!);
+      }
+    });
+    matrix.addEventListener('click', (e) => {
+      const row = (e.target as Element).closest('tbody tr');
+      if (row) select(row.getAttribute('data-t')!);
+    });
+  }
+
+  document.addEventListener('astro:page-load', wire);
+</script>
