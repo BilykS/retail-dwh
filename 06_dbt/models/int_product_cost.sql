@@ -16,12 +16,12 @@ with bounds as (
 
     -- межі періодів: початок часів плюс дата кожної зміни ціни
     select product_id, date '1900-01-01' as valid_from
-    from src.products
+    from {{ source('src', 'products') }}
 
     union all
 
     select product_id, changed_at::date
-    from src.product_changes
+    from {{ source('src', 'product_changes') }}
     where field_name = 'unit_cost'
 
 ),
@@ -46,7 +46,7 @@ select w.product_id,
        -- Якщо змін далі немає, період відкритий і в ньому діє поточна ціна.
        coalesce(
            (select pc.old_value::numeric(12,2)
-            from src.product_changes pc
+            from {{ source('src', 'product_changes') }} pc
             where pc.product_id = w.product_id
               and pc.field_name = 'unit_cost'
               and pc.changed_at::date > w.valid_from
@@ -56,4 +56,4 @@ select w.product_id,
        ) as unit_cost
 
 from windows w
-join src.products p on p.product_id = w.product_id
+join {{ source('src', 'products') }} p on p.product_id = w.product_id

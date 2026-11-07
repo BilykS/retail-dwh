@@ -6,4 +6,4 @@ select
     city                as warehouse_city,
     wh_type                as warehouse_type,
     opened_at           as warehouse_opened_at
-from wms.warehouses
+from {{ source('wms', 'warehouses') }}

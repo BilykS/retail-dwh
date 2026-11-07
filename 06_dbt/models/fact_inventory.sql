@@ -8,9 +8,9 @@ with base as (
         sd.qty_reserved as qty_reserved,
         sd.qty_in_transit as qty_in_transit,
         sd.qty_on_hand - sd.qty_reserved as qty_available
-    from wms.stock_daily sd
-    join wms.articles a on a.article_id = sd.article_id
-    left join src.products p on p.sku = a.retail_sku
+    from {{ source('wms', 'stock_daily') }} sd
+    join {{ source('wms', 'articles') }} a on a.article_id = sd.article_id
+    left join {{ source('src', 'products') }} p on p.sku = a.retail_sku
 
 )
 

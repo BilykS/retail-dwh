@@ -26,9 +26,9 @@ with base as (
            (i.quantity * i.unit_price - i.quantity * i.unit_price * i.discount_pct / 100)::numeric(12,2)  as net_amount
 
 
-    from src.order_items i
-    join src.orders   o on o.order_id   = i.order_id
-    join src.products p on p.product_id = i.product_id
+    from {{ source('src', 'order_items') }} i
+    join {{ source('src', 'orders') }}   o on o.order_id   = i.order_id
+    join {{ source('src', 'products') }} p on p.product_id = i.product_id
 
     -- ціна, що діяла в день продажу, а не поточна
     join {{ ref('int_product_cost') }} ch

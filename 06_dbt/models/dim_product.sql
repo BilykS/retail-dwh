@@ -19,7 +19,7 @@ select
        par.category_name   as category_parent,
        b.brand_name        as brand_name,
        p.unit_cost         as unit_cost
-from src.products p
-join src.brands b on b.brand_id = p.brand_id
-join src.categories cat on cat.category_id = p.category_id
-join src.categories par on par.category_id = cat.parent_category_id
+from {{ source('src', 'products') }} p
+join {{ source('src', 'brands') }} b on b.brand_id = p.brand_id
+join {{ source('src', 'categories') }} cat on cat.category_id = p.category_id
+join {{ source('src', 'categories') }} par on par.category_id = cat.parent_category_id

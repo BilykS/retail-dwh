@@ -8,5 +8,5 @@ c.region,
 s.store_type,
 s.opened_at,
 s.closed_at
-from src.stores s
-join src.cities c on c.city_id = s.city_id
+from {{ source('src', 'stores') }} s
+join {{ source('src', 'cities') }} c on c.city_id = s.city_id

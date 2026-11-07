@@ -25,5 +25,5 @@ select
        end,
        coalesce(ci.city_name, 'Не вказано'),
        coalesce(c.loyalty_tier, 'Без картки')
-from src.customers c
-left join src.cities ci on ci.city_id = c.city_id
+from {{ source('src', 'customers') }} c
+left join {{ source('src', 'cities') }} ci on ci.city_id = c.city_id

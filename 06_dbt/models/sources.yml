@@ -1,0 +1,29 @@
+version: 2
+
+# Операційні системи, з яких будується модель. Завдяки цьому файлу граф
+# залежностей у документації dbt починається від джерел, а не від моделей.
+sources:
+  - name: src
+    description: "Система-джерело: роздрібні продажі (OLTP, 3НФ)"
+    tables:
+      - name: brands
+      - name: categories
+      - name: cities
+      - name: customers
+      - name: order_items
+        description: "Позиції чеків. Зерно fact_sales"
+      - name: orders
+      - name: product_changes
+        description: "Журнал змін товарів: назва, категорія, закупівельна ціна"
+      - name: products
+        description: "Поточний стан товарів. unit_cost тут лише сьогоднішній"
+      - name: stores
+
+  - name: wms
+    description: "Система-джерело: управління складом"
+    tables:
+      - name: articles
+        description: "Складський довідник зі своїми кодами, із товаром зв'язаний через retail_sku"
+      - name: stock_daily
+        description: "Денні залишки. Зерно fact_inventory"
+      - name: warehouses
