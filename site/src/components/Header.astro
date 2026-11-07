@@ -19,14 +19,14 @@ const { lang = DEFAULT_LOCALE } = Astro.props;
 const nav = [
   { path: '/', label: t(lang, 'nav.overview') },
   { path: '/report', label: t(lang, 'nav.report') },
-  { path: '/model', label: t(lang, 'nav.model') },
-  { path: '/decisions', label: t(lang, 'nav.decisions') },
-  { path: '/results', label: t(lang, 'nav.results') },
+  { path: '/how', label: t(lang, 'nav.how') },
 ];
 
 // Same page in the other language, so switching never dumps the reader home.
 const bare = pathWithoutLocale(Astro.url.pathname);
-const isActive = (path: string) => bare === path;
+// Model, Decisions and Results are pages of the "how it is built" section.
+const HOW_SECTION = ['/how', '/model', '/decisions', '/results'];
+const isActive = (path: string) => bare === path || (path === '/how' && HOW_SECTION.includes(bare));
 ---
 
 {/* Deliberately NOT transition:persist. A persisted header keeps its original

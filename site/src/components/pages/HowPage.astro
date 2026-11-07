@@ -1,0 +1,144 @@
+---
+import Base from '~/layouts/Base.astro';
+import HowNav from '~/components/HowNav.astro';
+import Pipeline from '~/components/Pipeline.astro';
+import { type Locale, localePath } from '~/i18n';
+import { formatter } from '~/lib/format';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const fmt = formatter(lang);
+
+const COPY = {
+  en: {
+    title: 'How it is built',
+    description: 'The model, the decisions behind the numbers, tests and reconciliation of the Retail DWH, for technical readers.',
+    eyebrow: 'How it is built',
+    heading: 'What the answers rest on',
+    lede: 'This section is for readers who want to check the work: the data flow, the model, the decisions the numbers depend on, and how it was all tested.',
+    sales: 'sales rows in <code>fact_sales</code>',
+    stock: 'daily stock snapshots in <code>fact_inventory</code>',
+    tests: 'dbt tests pass',
+    diff: 'difference in totals between the manual model and the dbt model',
+    flow: 'Data flow',
+    caption: 'The model is built twice, by hand in SQL and in dbt, so the two can be compared. Sales match to the kopiyka.',
+    routes: [
+      { path: '/model', title: 'Model', text: 'Two fact tables of different types on shared dimensions, a diagram and a matrix.' },
+      { path: '/decisions', title: 'Decisions', text: 'Seven decisions the numbers depend on, with examples from this data.' },
+      { path: '/results', title: 'Results', text: 'Reconciliation, tests, star against snowflake, and what reconciliation missed.' },
+    ],
+    glossaryTitle: 'Terms used in this section',
+    glossary: [
+      ['Fact table', 'Holds events or states with their numbers, such as a receipt line or a day’s stock.'],
+      ['Dimension', 'Describes those rows and is what reports filter and group by: date, product, store.'],
+      ['Grain', 'What exactly one row of a fact table means. Everything else follows from it.'],
+      ['SCD Type 2', 'When an attribute changes, a new version of the row is added and the old one is kept.'],
+      ['Semi-additive measure', 'Adds up across some dimensions but not all. Stock adds up across warehouses, but not across dates.'],
+      ['Drill-across', 'Comparing two fact tables: each is aggregated to a common level first, and only then are the results joined.'],
+    ],
+    stack: 'Stack',
+    run: 'Run it yourself',
+    runComment: '# loading src and wms: commands in the README',
+  },
+  uk: {
+    title: 'Як побудовано',
+    description: 'Модель, рішення, від яких залежать цифри, тести й звірка сховища Retail DWH для технічних читачів.',
+    eyebrow: 'Як побудовано',
+    heading: 'На чому тримаються відповіді',
+    lede: 'Цей розділ для тих, хто хоче перевірити роботу: потік даних, модель, рішення, від яких залежать цифри, і те, як усе це перевірялось.',
+    sales: 'рядків продажів у <code>fact_sales</code>',
+    stock: 'денних зрізів залишків у <code>fact_inventory</code>',
+    tests: 'тестів dbt проходять',
+    diff: 'різниця сум між ручною моделлю і моделлю dbt',
+    flow: 'Потік даних',
+    caption: 'Модель зібрана двічі: вручну на SQL і в dbt. Так я можу порівняти результати між собою. Продажі збігаються до копійки.',
+    routes: [
+      { path: '/model', title: 'Модель', text: 'Два факти різного типу на спільних вимірах, схема і матриця.' },
+      { path: '/decisions', title: 'Рішення', text: 'Сім рішень, від яких залежать цифри, з прикладами на цих даних.' },
+      { path: '/results', title: 'Результати', text: 'Звірки, тести, порівняння зірки зі сніжинкою і те, що звірка пропустила.' },
+    ],
+    glossaryTitle: 'Терміни цього розділу',
+    glossary: [
+      ['Факт', 'Таблиця подій чи станів із їхніми числами, наприклад позиція чека або залишок за день.'],
+      ['Вимір', 'Описує ці рядки, за ним звіти фільтрують і групують: дата, товар, магазин.'],
+      ['Зерно', 'Що саме означає один рядок факту. Усе інше випливає з цього.'],
+      ['SCD Type 2', 'Коли атрибут змінюється, додається нова версія рядка, а стара лишається.'],
+      ['Напівадитивна міра', 'Складається не за всіма вимірами. Залишки складаються за складами, але не за датами.'],
+      ['Drill-across', 'Порівняння двох фактів: кожен спочатку агрегується до спільного рівня, а вже потім результати з’єднуються.'],
+    ],
+    stack: 'Стек',
+    run: 'Запустити самому',
+    runComment: '# наповнення src і wms: команди в README',
+  },
+}[lang];
+
+const FIGURES = [
+  { value: fmt.int(233015), text: COPY.sales },
+  { value: fmt.int(254124), text: COPY.stock },
+  { value: '76 / 76', text: COPY.tests },
+  { value: fmt.dec(0, 2), text: COPY.diff },
+];
+---
+
+<Base title={COPY.title} description={COPY.description} lang={lang}>
+  <div class="shell page">
+    <HowNav lang={lang} />
+
+    <header class="flex flex-col gap-3.5">
+      <p class="label">{COPY.eyebrow}</p>
+      <h1 class="display display-2">{COPY.heading}</h1>
+      <p class="lede">{COPY.lede}</p>
+    </header>
+
+    <nav class="grid gap-x-6 gap-y-4 md:grid-cols-3" aria-label={COPY.eyebrow}>
+      {COPY.routes.map((r) => (
+        <a href={localePath(lang, r.path)} class="flex flex-col gap-1.5 border-t border-rule-strong py-3.5 transition-colors hover:border-ink">
+          <span class="display text-[1.5625rem] leading-tight">{r.title}</span>
+          <span class="text-[0.9375rem] leading-snug text-ink-2">{r.text}</span>
+        </a>
+      ))}
+    </nav>
+
+    <dl class="grid grid-cols-2 gap-6 border-y border-rule py-6 md:grid-cols-4">
+      {FIGURES.map((f) => (
+        <div class="flex flex-col-reverse justify-end gap-2">
+          <dt class="text-[0.90625rem] leading-snug text-ink-2" set:html={f.text} />
+          <dd class="display text-[clamp(2.125rem,4vw,2.875rem)]">{f.value}</dd>
+        </div>
+      ))}
+    </dl>
+
+    <figure class="flex flex-col gap-3">
+      <h2 class="display display-3">{COPY.flow}</h2>
+      <Pipeline lang={lang} />
+      <figcaption class="note">{COPY.caption}</figcaption>
+    </figure>
+
+    <section class="flex flex-col gap-4">
+      <h2 class="display display-3">{COPY.glossaryTitle}</h2>
+      <dl class="grid gap-x-12 md:grid-cols-2">
+        {COPY.glossary.map(([term, meaning]) => (
+          <div class="flex flex-col gap-0.5 border-t border-rule py-3">
+            <dt class="font-semibold">{term}</dt>
+            <dd class="text-[0.9375rem] leading-normal text-ink-2">{meaning}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+
+    <div class="grid gap-8 md:grid-cols-2 md:gap-12">
+      <div class="flex flex-col gap-2">
+        <p class="label">{COPY.stack}</p>
+        <p class="lede">PostgreSQL 16, dbt 1.12, Power BI, Docker</p>
+      </div>
+      <div class="flex flex-col gap-2">
+        <p class="label">{COPY.run}</p>
+        <pre class="code-block">docker compose up -d
+{COPY.runComment}
+cd 06_dbt && ./dbt.cmd build</pre>
+      </div>
+    </div>
+  </div>
+</Base>

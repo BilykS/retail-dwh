@@ -14,11 +14,15 @@ import {
   type ReportData,
   averageOnHand,
   currentTotals,
+  discountSplit,
   emptyFilter,
   marginPct,
+  monthlyMarginPct,
+  novDecShare,
   previousTotals,
   stockAt,
   storeRows,
+  storeTypeRows,
 } from './aggregate.ts';
 
 const data: ReportData = JSON.parse(
@@ -82,6 +86,49 @@ test('stock is read at one date, never summed across dates', () => {
   assert.equal(t.reserved, 87_331);
   assert.equal(t.available, 232_308);
   assert.equal(Math.round(averageOnHand(data, null)), 320_924);
+});
+
+test('the home page and the report agree on the margin', () => {
+  const insights = JSON.parse(readFileSync(new URL('../data/insights.json', import.meta.url), 'utf8'));
+  const y2025 = insights.margin.find((m: { year: number }) => m.year === 2025);
+  const t = currentTotals(data, emptyFilter());
+  assert.ok(Math.abs(t.net - y2025.revenue) < CLOSE);
+  assert.ok(Math.abs(t.net - t.cost - y2025.margin) < CLOSE);
+  assert.equal(y2025.pct, 33.07);
+});
+
+test('monthly margin matches SQL', () => {
+  const series = monthlyMarginPct(data, emptyFilter());
+  const at = (ym: number) => series[data.months.indexOf(ym)];
+  assert.equal(at(202401)?.toFixed(2), '33.92');
+  assert.equal(at(202511)?.toFixed(2), '32.84');
+  // January 2026 holds only returns, so it has no meaningful margin.
+  assert.equal(at(202601), null);
+});
+
+test('discounted lines against the rest match SQL', () => {
+  const split = discountSplit(data, { ...emptyFilter(), year: null });
+  const pct = (a: { net: number; cost: number }) => (((a.net - a.cost) / a.net) * 100).toFixed(1);
+  assert.equal(pct(split.withDiscount), '24.6');
+  assert.equal(pct(split.withoutDiscount), '35.9');
+  assert.ok(Math.abs(split.discount - 176_302_426.11) < CLOSE);
+  assert.ok(Math.abs(split.withDiscount.net - 996_062_420.5) < CLOSE);
+});
+
+test('revenue per store by type matches SQL', () => {
+  const rows = storeTypeRows(data, emptyFilter());
+  const row = (type: string) => rows.find((r) => r.type === type)!;
+  assert.equal(row('standard').stores, 16);
+  assert.equal(row('flagship').stores, 6);
+  assert.equal(row('kiosk').stores, 8);
+  assert.ok(Math.abs(row('standard').perStore - 78_374_738.7) < CLOSE);
+  assert.ok(Math.abs(row('flagship').perStore - 71_369_643.47) < CLOSE);
+  assert.ok(Math.abs(row('kiosk').perStore - 64_236_160.85) < CLOSE);
+});
+
+test('November and December share matches SQL', () => {
+  assert.equal(novDecShare(data, emptyFilter(), 2025)?.toFixed(1), '27.8');
+  assert.equal(novDecShare(data, emptyFilter(), 2024)?.toFixed(1), '27.4');
 });
 
 test('one warehouse at the last date matches SQL', () => {

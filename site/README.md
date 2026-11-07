@@ -19,8 +19,10 @@ English at the root, Ukrainian under `/uk`, light and dark themes.
 ```
 scripts/fetch-fonts.mjs        Google Fonts woff2 into public/fonts + src/styles/fonts.css
 scripts/build-report-data.mjs  warehouse into public/data/report.json
+scripts/build-insights.mjs     home page answers and their SQL into src/data/insights.json
 src/i18n/index.ts              locales, routing helpers, short UI strings
 src/components/pages/          one component per page, prose in both languages side by side
+                               (Model, Decisions and Results sit under the /how section)
 src/pages/                     thin routes, each renders a page component with a locale
 src/report/aggregate.ts        the measures, pure functions, no DOM
 src/report/aggregate.test.ts   checks them against figures taken from SQL

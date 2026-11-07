@@ -1,5 +1,6 @@
 ---
 import Base from '~/layouts/Base.astro';
+import HowNav from '~/components/HowNav.astro';
 import Ledger from '~/components/Ledger.astro';
 import { type Locale, localePath } from '~/i18n';
 import { formatter } from '~/lib/format';
@@ -16,9 +17,9 @@ const REPO = 'https://github.com/BilykS/retail-dwh/blob/main';
 const COPY = {
   en: {
     title: 'Decisions',
-    description: 'Five modelling decisions the numbers depend on, each with an example from the data.',
+    description: 'Seven modelling decisions the numbers depend on, each with an example from the data.',
     eyebrow: 'Decisions',
-    heading: 'Five decisions the numbers depend on',
+    heading: 'Seven decisions the numbers depend on',
     lede: 'Every example comes from this data, and each one can be checked with a query.',
 
     grain: 'What counts as a sale',
@@ -54,13 +55,24 @@ const COPY = {
     semiAvg: '<code>avg()</code>, average stock over the period',
     semiNote: 'The rule is written in <code>schema.yml</code>, so it also appears in the dbt docs. The Stock tab of the <a href="/report">report</a> shows how it works.',
 
+    star: 'A star, not a snowflake',
+    starText: 'One controlled pipeline loads the warehouse, so repeating a category name in every product row does little harm. An extra join, on the other hand, costs time in every query. So the star is the default here.',
+    starRows: ['two extra joins, revenue by region', 'one extra join, revenue by category', 'no extra joins, top 20 products', 'space saved by normalising'],
+    starSaved: 'about 1%',
+    starNote: 'I would normalise a dimension only if it were very large, or if several dimensions shared its hierarchy, as <code>dim_city</code> does in the <code>snow</code> schema. These are PostgreSQL figures at this data size, and a columnar warehouse would give different ones. The method is on the <a href="/results">Results</a> page.',
+
+    dbt: 'dbt, with a manual build beside it',
+    dbtText: 'dbt gives tests, a build order worked out from dependencies, documentation with a lineage graph that starts at the source systems, and a rebuild with one command. The manual SQL build does a different job: two independent builds can be reconciled against each other, and they match to the kopiyka.',
+    dbtRun: 'models and tests',
+    dbtNote: 'In a real project I would keep only dbt. The manual build exists here as a check, and it has limits, which the <a href="/results">Results</a> page describes.',
+
     next: 'Next: results',
   },
   uk: {
     title: 'Рішення',
-    description: 'П’ять рішень у моделюванні, від яких залежать цифри, кожне з прикладом на даних.',
+    description: 'Сім рішень у моделюванні, від яких залежать цифри, кожне з прикладом на даних.',
     eyebrow: 'Рішення',
-    heading: 'П’ять рішень, від яких залежать цифри',
+    heading: 'Сім рішень, від яких залежать цифри',
     lede: 'Усі приклади взяті з цих даних, і кожен можна перевірити запитом.',
 
     grain: 'Що вважати продажем',
@@ -96,6 +108,17 @@ const COPY = {
     semiAvg: '<code>avg()</code>, середній залишок за період',
     semiNote: 'Це правило описане в <code>schema.yml</code>, тому воно є і в документації dbt. На вкладці «Запаси» у <a href="/uk/report">звіті</a> видно, як це працює.',
 
+    star: 'Зірка, а не сніжинка',
+    starText: 'Сховище завантажує один контрольований процес, тому повтор назви категорії в кожному рядку товару майже не шкодить. А зайвий join коштує часу в кожному запиті. Тому тут зірка за замовчуванням.',
+    starRows: ['два зайві join’и, виручка за областю', 'один зайвий join, виручка за категорією', 'без зайвих join’ів, топ-20 товарів', 'економія місця від нормалізації'],
+    starSaved: 'близько 1%',
+    starNote: 'Я нормалізував би вимір, лише якщо він дуже великий або його ієрархія спільна для кількох вимірів, як <code>dim_city</code> у схемі <code>snow</code>. Це цифри PostgreSQL на такому обсязі даних, на колонковому сховищі вони будуть іншими. Метод описаний на сторінці <a href="/uk/results">Результати</a>.',
+
+    dbt: 'dbt і ручна збірка поруч',
+    dbtText: 'dbt дає тести, порядок збірки із залежностей, документацію з графом, що починається від систем-джерел, і перебудову однією командою. Ручна збірка на SQL потрібна для іншого: дві незалежні збірки можна звірити між собою, і вони сходяться до копійки.',
+    dbtRun: 'моделей і тестів',
+    dbtNote: 'У реальному проєкті я лишив би тільки dbt. Ручна збірка тут існує заради перевірки, і в неї є межі, про які написано на сторінці <a href="/uk/results">Результати</a>.',
+
     next: 'Далі: результати',
   },
 }[lang];
@@ -113,12 +136,15 @@ const SECTIONS = {
   scd: `${REPO}/03_scd2/history.sql`,
   source: `${REPO}/07_inventory/model.md`,
   semi: `${REPO}/06_dbt/models/schema.yml`,
+  star: `${REPO}/02_snowflake/compare.sql`,
+  dbt: `${REPO}/06_dbt/dbt_project.yml`,
 };
 const srcLabel = (url: string) => url.replace(`${REPO}/`, '');
 ---
 
 <Base title={COPY.title} description={COPY.description} lang={lang}>
   <div class="shell page !gap-7">
+    <HowNav lang={lang} />
     <header class="flex flex-col gap-3.5 pb-4">
       <p class="label">{COPY.eyebrow}</p>
       <h1 class="display display-2">{COPY.heading}</h1>
@@ -205,6 +231,35 @@ md5(coalesce(o.customer_id, -1)::text) as customer_key  -- {COPY.keysComment}</p
           <div><b class="display">{fmt.dec(31.8, 1)}</b><span set:html={COPY.semiAvg} /></div>
         </div>
         <p class="note" set:html={COPY.semiNote} />
+      </div>
+    </article>
+
+    <article class="decision">
+      <div class="side">
+        <h2 class="display display-3">{COPY.star}</h2>
+        <a class="link source" href={SECTIONS.star}>{srcLabel(SECTIONS.star)}</a>
+      </div>
+      <div class="content">
+        <p class="body">{COPY.starText}</p>
+        <Ledger rows={[
+          { label: COPY.starRows[0], value: '+67%' },
+          { label: COPY.starRows[1], value: '+32%' },
+          { label: COPY.starRows[2], value: '+3%' },
+          { label: COPY.starRows[3], value: COPY.starSaved },
+        ]} />
+        <p class="note" set:html={COPY.starNote} />
+      </div>
+    </article>
+
+    <article class="decision">
+      <div class="side">
+        <h2 class="display display-3">{COPY.dbt}</h2>
+        <a class="link source" href={SECTIONS.dbt}>{srcLabel(SECTIONS.dbt)}</a>
+      </div>
+      <div class="content">
+        <p class="body">{COPY.dbtText}</p>
+        <pre class="code-block">dbt build   # PASS=87, {COPY.dbtRun}: 11 + 76</pre>
+        <p class="note" set:html={COPY.dbtNote} />
       </div>
     </article>
 

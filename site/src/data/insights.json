@@ -1,0 +1,222 @@
+{
+  "generatedAt": "2026-11-07",
+  "sql": {
+    "margin": "select d.year,\n       sum(f.net_amount)                 as revenue,\n       sum(f.net_amount - f.cost_amount) as margin,\n       round(100 * sum(f.net_amount - f.cost_amount) / sum(f.net_amount), 2) as margin_pct\nfrom star.fact_sales f\njoin star.dim_date d using (date_key)\nwhere d.year in (2024, 2025)\ngroup by d.year\norder by d.year;",
+    "priceEffect": "-- What margin would have been if no supplier price had ever changed.\nwith first_cost as (\n    select p.product_id,\n           coalesce((select pc.old_value::numeric\n                     from src.product_changes pc\n                     where pc.product_id = p.product_id\n                       and pc.field_name = 'unit_cost'\n                     order by pc.changed_at\n                     limit 1), p.unit_cost) as unit_cost\n    from src.products p\n)\nselect d.year,\n       sum(f.cost_amount) - sum(i.quantity * fc.unit_cost) as cost_added_by_price_rises,\n       round(100 * (sum(f.net_amount) - sum(i.quantity * fc.unit_cost)) / sum(f.net_amount), 2) as margin_pct_at_first_cost\nfrom star.fact_sales f\njoin star.dim_date d using (date_key)\njoin src.order_items i using (order_item_id)\njoin first_cost fc on fc.product_id = i.product_id\nwhere d.year in (2024, 2025)\ngroup by d.year\norder by d.year;",
+    "discount": "select f.discount_amount > 0 as discounted,\n       count(*)               as lines,\n       sum(f.net_amount)      as revenue,\n       sum(f.discount_amount) as discount,\n       round(100 * sum(f.net_amount - f.cost_amount) / sum(f.net_amount), 1) as margin_pct\nfrom star.fact_sales f\nwhere f.quantity > 0\ngroup by 1\norder by 1;",
+    "products": "with revenue as (\n    select p.product_id, sum(f.net_amount) as net\n    from star.fact_sales f\n    join star.dim_product p using (product_key)\n    group by p.product_id\n), running as (\n    select net, sum(net) over (order by net desc) / sum(net) over () as share\n    from revenue\n)\nselect count(*) filter (where share <= 0.80)                 as a_products,\n       count(*) filter (where share > 0.80 and share <= 0.95) as b_products,\n       count(*) filter (where share > 0.95)                  as c_products,\n       round(100 * sum(net) filter (where share > 0.95) / sum(net), 1) as c_share_pct\nfrom running;",
+    "formats": "select s.store_type,\n       count(distinct s.store_key)                     as stores,\n       sum(f.net_amount) / count(distinct s.store_key) as revenue_per_store\nfrom star.fact_sales f\njoin star.dim_store s using (store_key)\njoin star.dim_date d using (date_key)\nwhere d.year = 2025\ngroup by s.store_type\norder by revenue_per_store desc;",
+    "season": "select d.year,\n       round(100 * sum(f.net_amount) filter (where d.month >= 11) / sum(f.net_amount), 1) as nov_dec_share_pct\nfrom star.fact_sales f\njoin star.dim_date d using (date_key)\nwhere d.year in (2024, 2025)\ngroup by d.year\norder by d.year;"
+  },
+  "margin": [
+    {
+      "year": 2024,
+      "revenue": 2182640267.75,
+      "margin": 738130396.31,
+      "pct": 33.82
+    },
+    {
+      "year": 2025,
+      "revenue": 2196102966.76,
+      "margin": 726285739.19,
+      "pct": 33.07
+    }
+  ],
+  "priceEffect": [
+    {
+      "year": 2024,
+      "costAdded": 1477375.77,
+      "pctAtFirstCost": 33.89
+    },
+    {
+      "year": 2025,
+      "costAdded": 15973349.88,
+      "pctAtFirstCost": 33.8
+    }
+  ],
+  "currentCost": [
+    {
+      "year": 2024,
+      "pct": 33.01
+    },
+    {
+      "year": 2025,
+      "pct": 32.92
+    }
+  ],
+  "priceChanges": {
+    "count": 133,
+    "rises": 133,
+    "avgRisePct": 18.8,
+    "first": "2024-09-05"
+  },
+  "monthly": [
+    {
+      "ym": 202401,
+      "actual": 33.92,
+      "atCurrentCost": 32.88
+    },
+    {
+      "ym": 202402,
+      "actual": 33.69,
+      "atCurrentCost": 32.8
+    },
+    {
+      "ym": 202403,
+      "actual": 33.52,
+      "atCurrentCost": 32.71
+    },
+    {
+      "ym": 202404,
+      "actual": 33.82,
+      "atCurrentCost": 32.95
+    },
+    {
+      "ym": 202405,
+      "actual": 34.21,
+      "atCurrentCost": 33.4
+    },
+    {
+      "ym": 202406,
+      "actual": 33.63,
+      "atCurrentCost": 32.72
+    },
+    {
+      "ym": 202407,
+      "actual": 34.03,
+      "atCurrentCost": 33.14
+    },
+    {
+      "ym": 202408,
+      "actual": 33.57,
+      "atCurrentCost": 32.66
+    },
+    {
+      "ym": 202409,
+      "actual": 34.26,
+      "atCurrentCost": 33.41
+    },
+    {
+      "ym": 202410,
+      "actual": 33.81,
+      "atCurrentCost": 33.07
+    },
+    {
+      "ym": 202411,
+      "actual": 33.82,
+      "atCurrentCost": 33.23
+    },
+    {
+      "ym": 202412,
+      "actual": 33.69,
+      "atCurrentCost": 32.99
+    },
+    {
+      "ym": 202501,
+      "actual": 33.64,
+      "atCurrentCost": 33.16
+    },
+    {
+      "ym": 202502,
+      "actual": 33.08,
+      "atCurrentCost": 32.74
+    },
+    {
+      "ym": 202503,
+      "actual": 33.44,
+      "atCurrentCost": 33.01
+    },
+    {
+      "ym": 202504,
+      "actual": 33.11,
+      "atCurrentCost": 32.79
+    },
+    {
+      "ym": 202505,
+      "actual": 32.98,
+      "atCurrentCost": 32.77
+    },
+    {
+      "ym": 202506,
+      "actual": 33.01,
+      "atCurrentCost": 32.84
+    },
+    {
+      "ym": 202507,
+      "actual": 33.05,
+      "atCurrentCost": 32.94
+    },
+    {
+      "ym": 202508,
+      "actual": 33.06,
+      "atCurrentCost": 33
+    },
+    {
+      "ym": 202509,
+      "actual": 32.89,
+      "atCurrentCost": 32.87
+    },
+    {
+      "ym": 202510,
+      "actual": 33.02,
+      "atCurrentCost": 33.02
+    },
+    {
+      "ym": 202511,
+      "actual": 32.84,
+      "atCurrentCost": 32.84
+    },
+    {
+      "ym": 202512,
+      "actual": 33.01,
+      "atCurrentCost": 33.01
+    }
+  ],
+  "discount": {
+    "without": {
+      "lines": 169746,
+      "revenue": 3510022975.43,
+      "discount": 0,
+      "marginPct": 35.9
+    },
+    "with": {
+      "lines": 56696,
+      "revenue": 996062420.5,
+      "discount": 176302426.11,
+      "marginPct": 24.6
+    }
+  },
+  "products": {
+    "a": 552,
+    "b": 359,
+    "c": 1089,
+    "cSharePct": 5
+  },
+  "formats": [
+    {
+      "type": "standard",
+      "stores": 16,
+      "perStore": 78374738.699375
+    },
+    {
+      "type": "flagship",
+      "stores": 6,
+      "perStore": 71369643.46833333
+    },
+    {
+      "type": "kiosk",
+      "stores": 8,
+      "perStore": 64236160.845
+    }
+  ],
+  "season": [
+    {
+      "year": 2024,
+      "pct": 27.4
+    },
+    {
+      "year": 2025,
+      "pct": 27.8
+    }
+  ]
+}

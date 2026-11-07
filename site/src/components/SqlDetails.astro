@@ -1,0 +1,18 @@
+---
+import { type Locale, DEFAULT_LOCALE } from '~/i18n';
+
+interface Props {
+  lang?: Locale;
+  /** One or more queries, printed exactly as they ran. */
+  queries: string[];
+}
+const { lang = DEFAULT_LOCALE, queries } = Astro.props;
+const label = lang === 'uk' ? 'Показати SQL' : 'Show the SQL';
+---
+
+<details class="sql text-[0.9375rem]">
+  <summary class="link w-fit cursor-pointer text-ink-2">{label}</summary>
+  <div class="mt-2 flex flex-col gap-2">
+    {queries.map((q) => <pre class="code-block">{q}</pre>)}
+  </div>
+</details>

@@ -13,7 +13,7 @@
     "test": "node --test src/report/aggregate.test.ts",
     "verify": "npm run check && npm test && astro build",
     "fonts": "node scripts/fetch-fonts.mjs",
-    "data": "node scripts/build-report-data.mjs"
+    "data": "node scripts/build-report-data.mjs && node scripts/build-insights.mjs"
   },
   "dependencies": {
     "astro": "6.4.8"

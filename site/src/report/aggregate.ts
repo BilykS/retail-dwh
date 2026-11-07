@@ -7,6 +7,8 @@
 export type SalesCell = [number, number, number, number, number, number, number, number];
 /** month, store, channel, orders */
 export type OrderCell = [number, number, number, number];
+/** month, store, channel, category, then for sale lines: net and cost with a discount, net and cost without, discount given */
+export type DiscountCell = [number, number, number, number, number, number, number, number, number];
 /** day, warehouse, on hand, reserved, in transit, available */
 export type StockRow = [number, number, number, number, number, number];
 /** sku, name, category, stock, sold per day, days of cover */
@@ -24,6 +26,7 @@ export interface ReportData {
   days: string[];
   f: SalesCell[];
   o: OrderCell[];
+  d: DiscountCell[];
   s: StockRow[];
   low: LowRow[];
   cover: [string, number][];
@@ -50,7 +53,7 @@ export const emptyFilter = (): SalesFilter => ({
 });
 
 /** Dimensions a visual leaves out of the filter, so its own bars stay visible. */
-type Exclude = { cat?: boolean; channel?: boolean; region?: boolean; store?: boolean };
+type Exclude = { cat?: boolean; channel?: boolean; region?: boolean; store?: boolean; storeType?: boolean };
 
 export interface Totals {
   net: number;
@@ -65,7 +68,7 @@ function dimsMatch(data: ReportData, f: SalesFilter, store: number, channel: num
   if (!ex.channel && f.channel !== null && channel !== f.channel) return false;
   if (!ex.store && f.store !== null && store !== f.store) return false;
   if (!ex.region && f.region !== null && data.stores[store][2] !== f.region) return false;
-  if (f.storeType !== null && data.stores[store][3] !== f.storeType) return false;
+  if (!ex.storeType && f.storeType !== null && data.stores[store][3] !== f.storeType) return false;
   return true;
 }
 
@@ -143,6 +146,72 @@ export function monthlyNet(data: ReportData, f: SalesFilter): number[] {
     if (dimsMatch(data, f, s, c) && (f.cat === null || g === f.cat)) out[m] += net;
   }
   return out;
+}
+
+/**
+ * Margin % per month, ignoring the time filter. A month with no positive revenue
+ * has no meaningful margin, such as January 2026, which holds only returns.
+ */
+export function monthlyMarginPct(data: ReportData, f: SalesFilter): (number | null)[] {
+  const net = data.months.map(() => 0);
+  const cost = data.months.map(() => 0);
+  for (const [m, s, c, g, n, co] of data.f) {
+    if (!dimsMatch(data, f, s, c) || (f.cat !== null && g !== f.cat)) continue;
+    net[m] += n;
+    cost[m] += co;
+  }
+  return net.map((n, m) => (n > 0 ? ((n - cost[m]) / n) * 100 : null));
+}
+
+/** Share of a year's revenue that falls on November and December. */
+export function novDecShare(data: ReportData, f: SalesFilter, year: number): number | null {
+  const net = monthlyNet(data, f);
+  let peak = 0;
+  let total = 0;
+  net.forEach((n, m) => {
+    if (yearOf(data, m) !== year) return;
+    total += n;
+    if (monthOf(data, m) >= 11) peak += n;
+  });
+  return total > 0 ? (peak / total) * 100 : null;
+}
+
+export interface DiscountSplit {
+  withDiscount: { net: number; cost: number };
+  withoutDiscount: { net: number; cost: number };
+  discount: number;
+}
+
+/** Sale lines with a discount against the rest. Returns are left out of both. */
+export function discountSplit(data: ReportData, f: SalesFilter): DiscountSplit {
+  const a: DiscountSplit = { withDiscount: { net: 0, cost: 0 }, withoutDiscount: { net: 0, cost: 0 }, discount: 0 };
+  for (const [m, s, c, g, netD, costD, netN, costN, disc] of data.d) {
+    if (!inPeriod(data, f, m) || !dimsMatch(data, f, s, c) || (f.cat !== null && g !== f.cat)) continue;
+    a.withDiscount.net += netD;
+    a.withDiscount.cost += costD;
+    a.withoutDiscount.net += netN;
+    a.withoutDiscount.cost += costN;
+    a.discount += disc;
+  }
+  return a;
+}
+
+export interface StoreTypeRow {
+  type: string;
+  net: number;
+  cost: number;
+  stores: number;
+  perStore: number;
+}
+
+/** Revenue per store by store type, ignoring the store type filter itself. */
+export function storeTypeRows(data: ReportData, f: SalesFilter): StoreTypeRow[] {
+  const totals = groupTotals(data, f, (cell) => data.stores[cell[1]][3], { storeType: true, store: true });
+  const stores = groupTotals(data, f, (cell) => cell[1], { storeType: true, store: true });
+  return [...totals].map(([type, t]) => {
+    const count = [...stores.keys()].filter((s) => data.stores[s][3] === type).length;
+    return { type, net: t.net, cost: t.cost, stores: count, perStore: count ? t.net / count : 0 };
+  });
 }
 
 export interface StoreRow {

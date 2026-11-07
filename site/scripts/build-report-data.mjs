@@ -20,30 +20,21 @@
  * Run: node scripts/build-report-data.mjs
  */
 
-import { execFileSync } from 'node:child_process';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { query } from './warehouse.mjs';
 
 const SITE = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Runs a query in the warehouse container and returns rows as string arrays. */
-function query(sql) {
-  const out = execFileSync(
-    'docker',
-    ['exec', '-i', 'dwh-postgres', 'psql', '-U', 'dwh', '-d', 'dwh', '-At', '-F', '\t', '-c', sql],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-  );
-  return out
-    .split('\n')
-    .map((line) => line.replace(/\r$/, ''))
-    .filter(Boolean)
-    .map((line) => line.split('\t'));
-}
-
 const sales = query(`
   select d.year * 100 + d.month, s.store_name, s.city_name, s.region, s.store_type, t.channel, p.category_parent,
-         sum(f.net_amount), sum(f.cost_amount), sum(f.quantity), count(distinct f.order_number)
+         sum(f.net_amount), sum(f.cost_amount), sum(f.quantity), count(distinct f.order_number),
+         coalesce(sum(f.net_amount) filter (where f.quantity > 0 and f.discount_amount > 0), 0),
+         coalesce(sum(f.cost_amount) filter (where f.quantity > 0 and f.discount_amount > 0), 0),
+         coalesce(sum(f.net_amount) filter (where f.quantity > 0 and f.discount_amount = 0), 0),
+         coalesce(sum(f.cost_amount) filter (where f.quantity > 0 and f.discount_amount = 0), 0),
+         coalesce(sum(f.discount_amount) filter (where f.quantity > 0), 0)
   from star.fact_sales f
   join star.dim_date d using (date_key)
   join star.dim_store s using (store_key)
@@ -108,6 +99,13 @@ const data = {
     Math.round(Number(r[7])), Math.round(Number(r[8])), Number(r[9]), Number(r[10]),
   ]),
   o: orders.map((r) => [mi.get(Number(r[0])), si.get(r[1]), ci.get(r[2]), Number(r[3])]),
+  // Sale lines only, split by whether they carry a discount. Same grain as `f`.
+  d: sales
+    .filter((r) => r.slice(11).some((v) => Number(v) !== 0))
+    .map((r) => [
+      mi.get(Number(r[0])), si.get(r[1]), ci.get(r[5]), gi.get(r[6]),
+      ...r.slice(11).map((v) => Math.round(Number(v))),
+    ]),
   s: stock.map((r) => [di.get(r[0]), wi.get(r[1]), Number(r[2]), Number(r[3]), Number(r[4]), Number(r[5])]),
   low: low.map((r) => [r[0], r[1], r[2], Number(r[3]), Number(r[4]), Number(r[5])]),
   cover: COVER_ORDER.map((k) => [k, Number(cover.find((r) => r[0] === k)?.[1] ?? 0)]),

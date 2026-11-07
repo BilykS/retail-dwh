@@ -1,5 +1,6 @@
 ---
 import Base from '~/layouts/Base.astro';
+import HowNav from '~/components/HowNav.astro';
 import { type Locale, localePath } from '~/i18n';
 import { formatter } from '~/lib/format';
 import { EDGES, TABLES } from '~/data/tables';
@@ -85,6 +86,7 @@ const subtitle = (t: (typeof TABLES)[number]) => {
 
 <Base title={COPY.title} description={COPY.description} lang={lang}>
   <div class="shell page">
+    <HowNav lang={lang} />
     <header class="flex flex-col gap-3.5">
       <p class="label">{COPY.eyebrow}</p>
       <h1 class="display display-2">{COPY.heading}</h1>

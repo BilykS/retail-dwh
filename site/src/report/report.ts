@@ -15,16 +15,20 @@ import {
   avgCheck,
   currentTotals,
   dailyOnHand,
+  discountSplit,
   emptyFilter,
   groupTotals,
   hasPrevious,
   marginPct,
   monthOf,
+  monthlyMarginPct,
   monthlyNet,
+  novDecShare,
   previousTotals,
   stockAt,
   stockByWarehouse,
   storeRows,
+  storeTypeRows,
   yearOf,
 } from './aggregate';
 import * as label from './labels';
@@ -42,6 +46,30 @@ const sales: SalesFilter = emptyFilter();
 const table = { sort: 'net' as 'name' | 'net' | 'marginPct' | 'orders', dir: -1 };
 const stock = { warehouse: null as number | null, day: -1 };
 let activeTab: 'sales' | 'stock' = 'sales';
+
+/**
+ * A question on the home page opens the report at the place that answers it:
+ * /report?q=margin sets the filters and highlights the chart. Each year here
+ * matches the period the home page quotes for that answer.
+ */
+const FOCUS = {
+  margin: { tile: '#t-margin', year: 2025 },
+  discount: { tile: '#t-discount', year: null },
+  formats: { tile: '#t-formats', year: 2025 },
+  season: { tile: '#t-months', year: 2025 },
+} as const;
+type Focus = keyof typeof FOCUS;
+let focus: Focus | null = null;
+let scrollToFocus = false;
+
+function applyPreset() {
+  const q = new URLSearchParams(location.search).get('q');
+  if (!q || !(q in FOCUS)) return;
+  focus = q as Focus;
+  Object.assign(sales, emptyFilter(), { year: FOCUS[focus].year });
+  activeTab = 'sales';
+  scrollToFocus = true;
+}
 
 const esc = (s: string | number) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -85,7 +113,12 @@ class Report {
     this.setTab(activeTab);
     this.root.dataset.state = 'ready';
 
-    for (const [sel, draw] of [['#c-month', () => this.drawMonths()], ['#c-day', () => this.drawDays()]] as const) {
+    if (scrollToFocus && focus) {
+      this.$(FOCUS[focus].tile).scrollIntoView({ block: 'center' });
+      scrollToFocus = false;
+    }
+
+    for (const [sel, draw] of [['#c-month', () => this.drawMonths()], ['#c-margin', () => this.drawMargin()], ['#c-day', () => this.drawDays()]] as const) {
       const ro = new ResizeObserver(draw);
       ro.observe(this.$(sel));
       this.observers.push(ro);
@@ -150,12 +183,14 @@ class Report {
   /* ──────────────────────────────── Sales ─────────────────────────────── */
 
   private renderSales() {
-    const focus = document.activeElement?.getAttribute('data-fid');
+    const keep = document.activeElement?.getAttribute('data-fid');
 
     this.$('#s-year').innerHTML = ([[null, this.tr('report.all')], [2024, '2024'], [2025, '2025']] as const)
       .map(([y, text]) => `<button type="button" data-y="${y ?? ''}" data-fid="y:${text}" aria-pressed="${sales.year === y}">${text}</button>`)
       .join('');
 
+    this.$<HTMLSelectElement>('#s-type').value = sales.storeType ?? '';
+    this.renderFocus();
     this.renderChips();
     this.renderKpis();
 
@@ -181,9 +216,83 @@ class Report {
     }).sort(byNet), sales.channel);
 
     this.renderStores();
+    this.renderFormats();
+    this.renderDiscount();
+    this.renderFindings();
     this.drawMonths();
+    this.drawMargin();
 
-    if (focus) this.root.querySelector<HTMLElement>(`[data-fid="${CSS.escape(focus)}"]`)?.focus();
+    if (keep) this.root.querySelector<HTMLElement>(`[data-fid="${CSS.escape(keep)}"]`)?.focus();
+  }
+
+  private renderFocus() {
+    const box = this.$('#s-focus');
+    box.innerHTML = focus
+      ? `<span>${esc(this.tr(`focus.${focus}`))}</span> <button type="button" data-focus-clear>${esc(this.tr('focus.clear'))}</button>`
+      : '';
+    this.root.querySelectorAll('.tile').forEach((t) => t.classList.remove('is-focus'));
+    if (focus) this.$(FOCUS[focus].tile).classList.add('is-focus');
+  }
+
+  /* Chart headings state the finding, recalculated for the current filters. */
+  private renderFindings() {
+    const { data, fmt } = this;
+    const share = sales.year !== null ? novDecShare(data, sales, sales.year) : null;
+    this.$('#f-months').textContent = share !== null
+      ? this.tr('report.f.season', { share: fmt.dec(share, 1) })
+      : this.tr('report.t.months');
+
+    const cur = currentTotals(data, sales);
+    const prev = hasPrevious(data, sales) ? previousTotals(data, sales) : null;
+    const pct = fmt.dec(marginPct(cur), 1);
+    this.$('#f-margin').textContent = prev?.net
+      ? this.tr('report.f.marginDelta', { pct, delta: fmt.signed(marginPct(cur) - marginPct(prev), 2, '') })
+      : this.tr('report.f.margin', { pct });
+  }
+
+  private renderFormats() {
+    const { lang, fmt } = this;
+    const rows = storeTypeRows(this.data, sales).sort((a, b) => b.perStore - a.perStore);
+    const typeName = (type: string) => label.STORE_TYPES[lang][type] ?? type;
+    this.bars('#c-formats', 'fmt', rows.map((r) => ({
+      key: r.type,
+      label: typeName(r.type),
+      value: r.perStore,
+      text: fmt.compact(r.perStore),
+      tip: `${typeName(r.type)}\n${this.tr('report.tip.stores', { value: fmt.int(r.stores) })}\n${this.tr('report.tip.revenue', { value: fmt.int(r.net) })}`,
+    })), sales.storeType);
+    this.$('#f-formats').textContent = rows.length
+      ? this.tr('report.f.formats', { name: typeName(rows[0].type) })
+      : this.tr('report.t.formats');
+  }
+
+  private renderDiscount() {
+    const { fmt } = this;
+    const split = discountSplit(this.data, sales);
+    const pct = (a: { net: number; cost: number }) => (a.net > 0 ? ((a.net - a.cost) / a.net) * 100 : null);
+    const withPct = pct(split.withDiscount);
+    const withoutPct = pct(split.withoutDiscount);
+    const heading = this.$('#f-discount');
+    const box = this.$('#c-discount');
+    const note = this.$('#n-discount');
+
+    if (withPct === null || withoutPct === null) {
+      heading.textContent = this.tr('report.t.discount');
+      box.innerHTML = `<div class="bi-empty">${this.tr('report.empty')}</div>`;
+      note.textContent = '';
+      return;
+    }
+
+    heading.textContent = this.tr('report.f.discount', { a: fmt.dec(withPct, 1), b: fmt.dec(withoutPct, 1) });
+    const max = Math.max(withPct, withoutPct);
+    const row = (name: string, value: number, a: { net: number }) => {
+      const tip = `${name}\n${this.tr('report.tip.revenue', { value: fmt.int(a.net) })}\n${this.tr('report.tip.margin', { value: fmt.dec(value, 1) })}`;
+      return `<div class="brow is-static" data-tip="${esc(tip)}"><span class="brow-n">${name}</span><span class="brow-t"><span class="brow-b" style="width:calc((100% - 3rem) * ${(value / max).toFixed(4)})"></span><span class="brow-v">${fmt.dec(value, 1)}%</span></span></div>`;
+    };
+    box.innerHTML =
+      row(this.tr('report.l.withDiscount'), withPct, split.withDiscount) +
+      row(this.tr('report.l.withoutDiscount'), withoutPct, split.withoutDiscount);
+    note.textContent = this.tr('report.n.discount', { value: fmt.compact(split.discount) });
   }
 
   private renderChips() {
@@ -212,7 +321,7 @@ class Report {
       prev && was ? `${fmt.signed(((now - was) / Math.abs(was)) * 100, 1, '%')} ${suffix}` : '';
 
     const margin = cur.net - cur.cost;
-    const ppDelta = prev?.net ? `${fmt.signed(marginPct(cur) - marginPct(prev), 1, this.tr('report.pp'))} ${suffix}` : '';
+    const ppDelta = prev?.net ? `${fmt.signed(marginPct(cur) - marginPct(prev), 2, this.tr('report.pp'))} ${suffix}` : '';
 
     this.$('#s-kpis').innerHTML =
       this.kpi(this.tr('report.kpi.revenue'), fmt.compact(cur.net), delta(cur.net, prev?.net)) +
@@ -312,6 +421,80 @@ class Report {
     this.$('#l-month').innerHTML = showPrev
       ? `<span><i style="background:var(--data-1)"></i>2025</span><span><i class="ln" style="background:var(--data-2)"></i>2024</span>`
       : '';
+  }
+
+  private drawMargin() {
+    const box = this.$('#c-margin');
+    const w = box.clientWidth;
+    if (!w) return;
+    const { data, fmt, lang } = this;
+
+    const slots = data.months.map((_, i) => i).filter((i) => sales.year === null || yearOf(data, i) === sales.year);
+    const series = monthlyMarginPct(data, sales);
+    const showPrev = sales.year === 2025;
+    const prevOf = (i: number) => {
+      const y = data.months.indexOf(data.months[i] - 100);
+      return y === -1 ? null : series[y];
+    };
+
+    const values = [...slots.map((i) => series[i]), ...(showPrev ? slots.map(prevOf) : [])].filter((v): v is number => v !== null);
+    this.$('#l-margin').innerHTML = showPrev
+      ? `<span><i style="background:var(--data-1)"></i>2025</span><span><i class="ln" style="background:var(--data-2)"></i>2024</span>`
+      : '';
+    if (!values.length) {
+      box.innerHTML = `<div class="bi-empty">${this.tr('report.empty')}</div>`;
+      return;
+    }
+
+    const lo = Math.min(...values), hi = Math.max(...values);
+    const step = Math.max(0.5, niceStep((hi - lo || 1) / 4));
+    const y0 = Math.floor(lo / step) * step;
+    const y1 = Math.max(Math.ceil(hi / step) * step, y0 + step);
+    const h = 250, l = 36, r = 6, tp = 16, b = 22;
+    const Y = (v: number) => tp + ((y1 - v) / (y1 - y0)) * (h - tp - b);
+    const slot = (w - l - r) / slots.length;
+    const X = (n: number) => l + n * slot + slot / 2;
+
+    let s = '';
+    for (let v = y0; v <= y1 + 1e-6; v += step) {
+      s += `<line class="${v === y0 ? 'base' : 'gridl'}" x1="${l}" x2="${w - r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${l - 6}" y="${Y(v) + 4}" text-anchor="end">${fmt.dec(v, step < 1 ? 1 : 0)}</text>`;
+    }
+
+    // A month with no meaningful margin breaks the line instead of being bridged.
+    const path = (pick: (i: number) => number | null) => {
+      let d = '';
+      let open = false;
+      slots.forEach((i, n) => {
+        const v = pick(i);
+        if (v === null) { open = false; return; }
+        d += `${open ? 'L' : 'M'}${X(n).toFixed(1)} ${Y(v).toFixed(1)}`;
+        open = true;
+      });
+      return d;
+    };
+
+    slots.forEach((i, n) => {
+      const cur = series[i];
+      const prev = showPrev ? prevOf(i) : null;
+      const tip = `${this.monthLabel(i)}\n${this.tr('report.tip.margin', { value: cur === null ? '-' : fmt.dec(cur, 2) })}${prev !== null ? `\n${this.tr('report.tip.lastYearMargin', { value: fmt.dec(prev, 2) })}` : ''}`;
+      s += `<rect class="hit" tabindex="0" role="button" data-m="${i}" data-fid="mm:${i}" aria-label="${esc(tip.replace(/\n/g, ', '))}" data-tip="${esc(tip)}" x="${l + n * slot}" y="${tp}" width="${slot}" height="${h - tp - b}"/>`;
+      const month = monthOf(data, i);
+      const labelled = sales.year !== null ? w >= 460 || n % 2 === 0 : month === 1 || (month === 7 && w >= 500);
+      if (labelled) {
+        const last = sales.year === null && n === slots.length - 1;
+        const text = `${label.MONTHS[lang][month - 1]}${sales.year === null && month === 1 ? ` ${yearOf(data, i)}` : ''}`;
+        s += `<text x="${last ? w - r : X(n)}" y="${h - 6}" text-anchor="${last ? 'end' : 'middle'}">${text}</text>`;
+      }
+    });
+
+    if (showPrev) s += `<path d="${path(prevOf)}" fill="none" stroke="var(--data-2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" pointer-events="none"/>`;
+    s += `<path d="${path((i) => series[i])}" fill="none" stroke="var(--data-1)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" pointer-events="none"/>`;
+
+    if (sales.month !== null && slots.includes(sales.month) && series[sales.month] !== null) {
+      s += `<circle cx="${X(slots.indexOf(sales.month))}" cy="${Y(series[sales.month]!)}" r="5" fill="var(--data-1)" stroke="var(--paper-raised)" stroke-width="2" pointer-events="none"/>`;
+    }
+
+    box.innerHTML = `<svg width="${w}" height="${h}" role="group" aria-label="${esc(this.tr('report.t.margin'))}">${s}</svg>`;
   }
 
   /* ──────────────────────────────── Stock ─────────────────────────────── */
@@ -520,6 +703,11 @@ class Report {
     } else if ((b = target.closest('#c-cat .brow'))) {
       const k = Number(b.getAttribute('data-k'));
       sales.cat = sales.cat === k ? null : k;
+    } else if (target.closest('[data-focus-clear]')) {
+      focus = null;
+    } else if ((b = target.closest('#c-formats .brow'))) {
+      const k = b.getAttribute('data-k');
+      sales.storeType = sales.storeType === k ? null : k;
     } else if ((b = target.closest('#c-reg .brow'))) {
       const k = b.getAttribute('data-k');
       sales.region = sales.region === k ? null : k;
@@ -550,6 +738,7 @@ export async function mountReport() {
   const root = document.getElementById('report');
   if (!root) return;
   const lang = document.documentElement.lang as Locale;
+  applyPreset();
   try {
     const data = await loadData();
     // The reader may have navigated away while the data was loading.

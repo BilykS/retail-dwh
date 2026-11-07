@@ -1,5 +1,6 @@
 ---
 import Base from '~/layouts/Base.astro';
+import HowNav from '~/components/HowNav.astro';
 import Ledger from '~/components/Ledger.astro';
 import { type Locale, localePath } from '~/i18n';
 import { formatter } from '~/lib/format';
@@ -34,11 +35,11 @@ const COPY = {
     limitNote: 'The two implementations now get this cost in different ways: a CTE with a date range in the manual ETL, and a separate model in dbt. So the reconciliation checks this rule as well.',
 
     bench: 'Star or snowflake',
-    benchText: 'The same data in two schemas and the same queries. <code>EXPLAIN ANALYZE</code>, warm cache, three runs, last one taken.',
+    benchText: 'The same sales in two schemas and the same queries. <code>EXPLAIN ANALYZE</code>, warm cache, median of 41 runs.',
     benchTitle: 'Every extra join costs time, while normalised dimensions save almost no space',
     joins: (a: number, b: number) => `joins: ${a} against ${b}`,
     queries: ['Revenue by region', 'Revenue by category', 'Top 20 products'],
-    benchNote: `${fmt.int(96)}% of the pages read belong to the fact table, so normalising dimensions saves less than ${fmt.dec(1.5, 1)}%. I chose the star as the base schema.`,
+    benchNote: 'The fact table accounts for 95 to 98% of the pages read, so normalising dimensions saves about 1% of the space. The 3% on the last query is within run-to-run noise. I chose the star as the base schema. The <code>snow</code> schema exists only for this comparison, so its cost still uses the old formula. These queries read revenue only.',
 
     analytics: 'Analytics',
     analyticsText: `The query set in <a href="https://github.com/BilykS/retail-dwh/tree/main/04_practice">04_practice</a>: year over year, top N in a category, running totals and ABC analysis (552 of ${fmt.int(2000)} products bring 80% of revenue). The charts are in the <a href="/report">report</a>.`,
@@ -67,11 +68,11 @@ const COPY = {
     limitNote: 'Тепер реалізації отримують цю собівартість по-різному: CTE з діапазоном дат у ручному ETL і окрема модель у dbt. Тому звірка перевіряє і це правило.',
 
     bench: 'Зірка чи сніжинка',
-    benchText: 'Ті самі дані в двох схемах і ті самі запити. <code>EXPLAIN ANALYZE</code>, прогрітий кеш, три прогони, взято останній.',
+    benchText: 'Ті самі продажі в двох схемах і ті самі запити. <code>EXPLAIN ANALYZE</code>, прогрітий кеш, медіана 41 прогону.',
     benchTitle: 'Кожен зайвий join коштує часу, а місця в нормалізованих вимірах майже не економиться',
     joins: (a: number, b: number) => `join’ів: ${a} проти ${b}`,
     queries: ['Виручка за областю', 'Виручка за категорією', 'Топ-20 товарів'],
-    benchNote: `${fmt.int(96)}% прочитаних сторінок припадає на таблицю фактів, тому нормалізація вимірів економить менше ${fmt.dec(1.5, 1)}%. За базову схему я взяв зірку.`,
+    benchNote: 'На таблицю фактів припадає 95-98% прочитаних сторінок, тому нормалізація вимірів економить близько 1% місця. 3% на останньому запиті в межах шуму між прогонами. За базову схему я взяв зірку. Схема <code>snow</code> існує лише для цього порівняння, тому її собівартість рахується за старою формулою. Ці запити читають лише виручку.',
 
     analytics: 'Аналітика',
     analyticsText: `Набір запитів у <a href="https://github.com/BilykS/retail-dwh/tree/main/04_practice">04_practice</a>: рік до року, топ-N у категорії, наростаючі підсумки, ABC-аналіз (552 із ${fmt.int(2000)} товарів дають 80% виручки). Графіки зібрані у <a href="/uk/report">звіті</a>.`,
@@ -79,13 +80,13 @@ const COPY = {
   },
 }[lang];
 
-// Milliseconds from 02_snowflake/model.md.
+// Median milliseconds over 41 runs of 02_snowflake/compare.sql.
 const BENCH = [
-  { star: 44, snow: 81, joins: [1, 3], diff: '+85%' },
-  { star: 51, snow: 64, joins: [1, 2], diff: '+25%' },
-  { star: 57, snow: 56, joins: [1, 1], diff: '0%' },
+  { star: 51, snow: 85, joins: [1, 3], diff: '+67%' },
+  { star: 56, snow: 75, joins: [1, 2], diff: '+32%' },
+  { star: 61, snow: 63, joins: [1, 1], diff: '+3%' },
 ];
-const BENCH_MAX = 81;
+const BENCH_MAX = 85;
 const barWidth = (ms: number) => `width: calc((100% - 7.25rem) * ${(ms / BENCH_MAX).toFixed(4)})`;
 
 const NET = fmt.dec(4375145993.13, 2);
@@ -94,6 +95,7 @@ const COST = fmt.dec(2912024151.08, 2);
 
 <Base title={COPY.title} description={COPY.description} lang={lang}>
   <div class="shell page">
+    <HowNav lang={lang} />
     <header class="flex flex-col gap-3.5">
       <p class="label">{COPY.eyebrow}</p>
       <h1 class="display display-2">{COPY.heading}</h1>
@@ -158,7 +160,7 @@ const COST = fmt.dec(2912024151.08, 2);
           </div>
         ))}
       </div>
-      <p class="note">{COPY.benchNote}</p>
+      <p class="note" set:html={COPY.benchNote} />
     </section>
 
     <section class="flex flex-col gap-3">

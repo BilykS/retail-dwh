@@ -58,15 +58,42 @@ const storeTypes = Object.entries(STORE_TYPES[lang]);
             </select>
           </span>
         </div>
+        <div class="focus" id="s-focus" aria-live="polite"></div>
         <div class="chips" id="s-chips"></div>
         <div class="kpis" id="s-kpis"></div>
         <div class="grid">
-          <div class="tile s8">
-            <h3>{t(lang, 'report.t.months')}</h3>
+          <div class="tile s6" id="t-months">
+            <div>
+              <p class="tile-l">{t(lang, 'report.t.months')}</p>
+              <h3 id="f-months"></h3>
+            </div>
             <div class="legend" id="l-month"></div>
             <div class="chart" id="c-month"></div>
           </div>
+          <div class="tile s6" id="t-margin">
+            <div>
+              <p class="tile-l">{t(lang, 'report.t.margin')}</p>
+              <h3 id="f-margin"></h3>
+            </div>
+            <div class="legend" id="l-margin"></div>
+            <div class="chart" id="c-margin"></div>
+          </div>
           <div class="tile s4"><h3>{t(lang, 'report.t.categories')}</h3><div class="bars" id="c-cat"></div></div>
+          <div class="tile s4" id="t-formats">
+            <div>
+              <p class="tile-l">{t(lang, 'report.t.formats')}</p>
+              <h3 id="f-formats"></h3>
+            </div>
+            <div class="bars" id="c-formats"></div>
+          </div>
+          <div class="tile s4" id="t-discount">
+            <div>
+              <p class="tile-l">{t(lang, 'report.t.discount')}</p>
+              <h3 id="f-discount"></h3>
+            </div>
+            <div class="bars" id="c-discount"></div>
+            <p id="n-discount"></p>
+          </div>
           <div class="tile s4"><h3>{t(lang, 'report.t.regions')}</h3><div class="bars bars-tall" id="c-reg"></div></div>
           <div class="tile s3"><h3>{t(lang, 'report.t.channels')}</h3><div class="bars" id="c-chan"></div></div>
           <div class="tile s5"><h3>{t(lang, 'report.t.stores')}</h3><div class="tbl" id="c-store"></div></div>

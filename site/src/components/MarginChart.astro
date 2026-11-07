@@ -1,0 +1,118 @@
+---
+import insights from '~/data/insights.json';
+import { type Locale, DEFAULT_LOCALE } from '~/i18n';
+import { formatter } from '~/lib/format';
+import { MONTHS } from '~/report/labels';
+
+interface Props {
+  lang?: Locale;
+}
+const { lang = DEFAULT_LOCALE } = Astro.props;
+const fmt = formatter(lang);
+
+const COPY = {
+  en: {
+    aria: 'Monthly margin for 2024 and 2025. With price history it falls from about 34% to 33%. Calculated at today’s prices it stays near 33%, so the fall is not visible.',
+    actual: 'With price history',
+    current: 'At today’s prices',
+    firstRise: 'first price rise',
+    table: 'Show the table',
+    month: 'Month',
+  },
+  uk: {
+    aria: 'Маржа за місяцями 2024 і 2025 років. З історією цін вона падає приблизно з 34% до 33%. За сьогоднішніми цінами лишається близько 33%, тому падіння не видно.',
+    actual: 'З історією цін',
+    current: 'За сьогоднішніми цінами',
+    firstRise: 'перше підвищення цін',
+    table: 'Показати таблицю',
+    month: 'Місяць',
+  },
+}[lang];
+
+const W = 1000, H = 300, L = 44, R = 12, T = 28, B = 28;
+const MIN = 32, MAX = 35;
+const data = insights.monthly;
+
+const x = (i: number) => L + (i / (data.length - 1)) * (W - L - R);
+const y = (v: number) => T + ((MAX - v) / (MAX - MIN)) * (H - T - B);
+const line = (key: 'actual' | 'atCurrentCost') =>
+  data.map((d, i) => `${x(i).toFixed(1)},${y(d[key]).toFixed(1)}`).join(' ');
+
+const label = (ym: number) => `${MONTHS[lang][ym % 100 - 1]} ${Math.floor(ym / 100)}`;
+const slot = (W - L - R) / (data.length - 1);
+
+// The month of the first supplier price rise in the change log.
+const firstRise = Number(insights.priceChanges.first.slice(0, 4)) * 100 + Number(insights.priceChanges.first.slice(5, 7));
+const firstRiseX = x(data.findIndex((d) => d.ym === firstRise));
+---
+
+<div class="flex flex-col gap-3">
+  <div class="legend">
+    <span><i class="key key-actual"></i>{COPY.actual}</span>
+    <span><i class="key key-current"></i>{COPY.current}</span>
+  </div>
+
+  <div class="scroll-x">
+    <svg class="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={COPY.aria}>
+      {[32, 33, 34, 35].map((v) => (
+        <g>
+          <line class:list={[v === MIN ? 'base' : 'grid']} x1={L} x2={W - R} y1={y(v)} y2={y(v)} />
+          <text class="tick" x={L - 8} y={y(v) + 4} text-anchor="end">{v}%</text>
+        </g>
+      ))}
+
+      {data.map((d, i) => {
+        const month = d.ym % 100;
+        return (month === 1 || month === 7) && (
+          <text class="tick" x={x(i)} y={H - 6} text-anchor={i === 0 ? 'start' : 'middle'}>{label(d.ym)}</text>
+        );
+      })}
+
+      <line class="mark" x1={firstRiseX} x2={firstRiseX} y1={T - 8} y2={H - B} />
+      <text class="tick" x={firstRiseX + 6} y={T} >{COPY.firstRise}</text>
+
+      <polyline class="series series-current" points={line('atCurrentCost')} />
+      <polyline class="series series-actual" points={line('actual')} />
+
+      {data.map((d, i) => (
+        <rect class="hit" x={x(i) - slot / 2} y={T} width={slot} height={H - T - B}>
+          <title>{label(d.ym)}: {COPY.actual} {fmt.dec(d.actual, 2)}%, {COPY.current} {fmt.dec(d.atCurrentCost, 2)}%</title>
+        </rect>
+      ))}
+    </svg>
+  </div>
+
+  <details class="text-[0.9375rem]">
+    <summary class="link w-fit cursor-pointer text-ink-2">{COPY.table}</summary>
+    <div class="scroll-x mt-2 max-h-72 overflow-y-auto">
+      <table class="table min-w-[26rem]">
+        <thead>
+          <tr><th>{COPY.month}</th><th class="n">{COPY.actual}</th><th class="n">{COPY.current}</th></tr>
+        </thead>
+        <tbody>
+          {data.map((d) => (
+            <tr><td>{label(d.ym)}</td><td class="n">{fmt.dec(d.actual, 2)}%</td><td class="n">{fmt.dec(d.atCurrentCost, 2)}%</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</div>
+
+<style>
+  .chart { display: block; width: 100%; height: auto; min-width: 42rem; }
+  .grid { stroke: var(--rule); stroke-width: 1; }
+  .base { stroke: var(--rule-strong); stroke-width: 1; }
+  .mark { stroke: var(--rule-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+  .tick { font: 400 13px var(--font-text); fill: var(--ink-2); }
+  .series { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .series-actual { stroke: var(--data-1); }
+  .series-current { stroke: var(--ink-3); stroke-dasharray: 6 5; }
+  .hit { fill: transparent; }
+  .hit:hover { fill: var(--paper-sunk); fill-opacity: 0.6; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 0.25rem 1.125rem; font-size: 0.875rem; color: var(--ink-2); }
+  .key { display: inline-block; width: 1.25rem; height: 3px; margin-right: 0.375rem; vertical-align: 3px; }
+  .key-actual { background: var(--data-1); }
+  .key-current { background: repeating-linear-gradient(90deg, var(--ink-3) 0 6px, transparent 6px 10px); }
+</style>
