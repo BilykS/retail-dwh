@@ -1,0 +1,213 @@
+---
+import Base from '~/layouts/Base.astro';
+import { type Locale } from '~/i18n';
+import { STAGES } from '~/journey/scene-data';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+
+const COPY = {
+  en: {
+    title: 'Data journey',
+    description: 'A 3D flight through the warehouse: threads carry the values of one receipt line from two source systems into two star schemas on shared dimensions.',
+    heading: 'From a receipt to a star',
+    canvas: 'Three-dimensional scene: the tables of two source systems, threads of data, and two stars on shared dimensions.',
+    stages: 'Stages',
+    hint: 'Wheel: stages. Drag: rotate. Ctrl + wheel: zoom',
+    zoom: 'Zoom',
+    zoomOut: 'Zoom out',
+    zoomIn: 'Zoom in',
+    whole: 'Whole scheme',
+    showSql: 'Show the queries',
+    hideSql: 'Hide the queries',
+    before: 'Before, src: 3 joins and a filter',
+    after: 'After, dbt_star: 1 join',
+    loading: 'Preparing the scene',
+    noWebgl: 'This page needs WebGL, which this browser does not provide. Try another browser or turn on hardware acceleration.',
+  },
+  uk: {
+    title: 'Шлях даних',
+    description: 'Тривимірний політ крізь сховище: нитки несуть значення одного рядка чека з двох систем-джерел у дві зіркові схеми на спільних вимірах.',
+    heading: 'Від чека до зірки',
+    canvas: 'Тривимірна сцена: таблиці двох джерел, ниточки даних і дві зірки на спільних вимірах.',
+    stages: 'Етапи',
+    hint: 'Коліщатко: етапи. Перетягування: обертання. Ctrl + коліщатко: зум',
+    zoom: 'Масштаб',
+    zoomOut: 'Віддалити',
+    zoomIn: 'Наблизити',
+    whole: 'Вся схема',
+    showSql: 'Показати запити',
+    hideSql: 'Сховати запити',
+    before: 'Було, src: 3 join’и й фільтр',
+    after: 'Стало, dbt_star: 1 join',
+    loading: 'Готую сцену',
+    noWebgl: 'Цій сторінці потрібен WebGL, а браузер його не дає. Спробуйте інший браузер або ввімкніть апаратне прискорення.',
+  },
+}[lang];
+
+const stages = STAGES[lang];
+const first = stages[0];
+---
+
+<Base title={COPY.title} description={COPY.description} lang={lang}>
+  <section id="journey" class="journey" data-state="loading" data-stage="0" aria-label={COPY.title}>
+    <canvas id="space" tabindex="0" aria-label={COPY.canvas}></canvas>
+
+    <div class="bar">
+      <h1>{COPY.heading}</h1>
+      <nav id="stages" class="stages" aria-label={COPY.stages}>
+        {stages.map((s, i) => (
+          <button type="button" data-stage={i} aria-current={i === 0 ? 'true' : 'false'}>{i + 1}. {s.label}</button>
+        ))}
+      </nav>
+    </div>
+    <p class="hint">{COPY.hint}</p>
+
+    <div class="caption" aria-live="polite">
+      <p class="eyebrow" id="c-eyebrow">{first.eyebrow}</p>
+      <h2 id="c-title">{first.title}</h2>
+      <p id="c-text">{first.text}</p>
+      <button type="button" class="sql-toggle" id="sql-toggle" data-show={COPY.showSql} data-hide={COPY.hideSql} hidden>{COPY.showSql}</button>
+    </div>
+
+    <div class="zoom" role="group" aria-label={COPY.zoom}>
+      <button type="button" id="z-out" aria-label={COPY.zoomOut}>−</button>
+      <input type="range" id="z-range" min="-100" max="100" value="0" aria-label={COPY.zoom} />
+      <button type="button" id="z-in" aria-label={COPY.zoomIn}>+</button>
+      <button type="button" class="wide" id="z-all" aria-pressed="false">{COPY.whole}</button>
+    </div>
+
+    <aside class="sql" id="sql-panel" hidden>
+      <p class="eyebrow">{COPY.before}</p>
+      <pre>select c.region, sum(i.quantity * i.unit_price * (1 - i.discount_pct / 100))
+from src.order_items i
+join src.orders o on o.order_id = i.order_id
+join src.stores s on s.store_id = o.store_id
+join src.cities c on c.city_id = s.city_id
+where o.status &lt;&gt; 'cancelled'
+group by c.region;</pre>
+      <p class="eyebrow">{COPY.after}</p>
+      <pre>select s.region, sum(f.net_amount)
+from dbt_star.fact_sales f
+join dbt_star.dim_store s using (store_key)
+group by s.region;</pre>
+    </aside>
+
+    <p class="status status-loading">{COPY.loading}</p>
+    <p class="status status-failed" role="alert">{COPY.noWebgl}</p>
+  </section>
+</Base>
+
+<style>
+  /* Deliberately a single dark look in both site themes: space has no light mode.
+     These colours are local to the scene and do not use the site's theme tokens. */
+  .journey {
+    --void: #05070f;
+    --ink-s: #e9ecf5;
+    --ink-s2: #a7aec4;
+    --ink-s3: #6e7691;
+    --line-s: rgb(190 200 235 / 0.18);
+    --glass: rgb(10 13 26 / 0.72);
+    --accent-s: #8fa6ff;
+    position: relative;
+    height: calc(100dvh - 4rem - 1px);
+    min-height: 32rem;
+    overflow: hidden;
+    color: var(--ink-s);
+    background:
+      radial-gradient(1200px 800px at 72% 40%, #141a3d 0%, rgb(20 26 61 / 0) 70%),
+      radial-gradient(900px 700px at 18% 66%, #1a1433 0%, rgb(26 20 51 / 0) 70%),
+      var(--void);
+  }
+
+  #space { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  :global(#space.is-dragging) { cursor: grabbing; }
+  #space:focus-visible { outline: none; }
+
+  .bar {
+    position: absolute;
+    inset: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 1.25rem;
+    padding: 0.625rem 1.5rem 0.875rem;
+    background: linear-gradient(rgb(5 7 15 / 0.94) 65%, rgb(5 7 15 / 0));
+    pointer-events: none;
+  }
+  .bar h1 { font-family: var(--font-display); font-size: 1.125rem; line-height: 1.2; white-space: nowrap; }
+  .stages { display: flex; flex: 1 1 auto; gap: 0.125rem 0.875rem; overflow-x: auto; scrollbar-width: none; pointer-events: auto; }
+  .stages::-webkit-scrollbar { display: none; }
+  .stages button { flex: none; font-size: 0.875rem; color: var(--ink-s2); white-space: nowrap; padding-block: 0.125rem; transition: color 0.15s ease; }
+  .stages button:hover { color: var(--ink-s); }
+  .stages button[aria-current='true'] { color: var(--ink-s); text-decoration: underline; text-decoration-color: var(--accent-s); text-underline-offset: 5px; }
+  .hint { position: absolute; right: 1.5rem; bottom: 4.625rem; padding: 0.125rem 0.5rem; font-size: 0.8125rem; color: var(--ink-s2); background: var(--glass); pointer-events: none; }
+  @media (max-width: 56rem) { .hint { display: none; } }
+  @media (max-width: 47.5rem) { .stages { flex-basis: 100%; } .bar { padding-inline: 1rem; } }
+
+  .caption, .zoom, .sql {
+    position: absolute;
+    background: var(--glass);
+    border: 1px solid var(--line-s);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .caption {
+    left: 1.5rem;
+    bottom: 1.5rem;
+    width: min(30rem, calc(100% - 2rem));
+    padding: 1rem 1.125rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+  .eyebrow { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.09em; line-height: 1.5; text-transform: uppercase; color: var(--ink-s3); }
+  .caption h2 { font-family: var(--font-display); font-size: 1.75rem; line-height: 1.15; letter-spacing: -0.01em; text-wrap: balance; }
+  .caption #c-text { font-size: 0.9375rem; line-height: 1.45; color: var(--ink-s2); }
+  .sql-toggle { align-self: flex-start; font-size: 0.875rem; color: var(--accent-s); text-decoration: underline; text-underline-offset: 3px; }
+  .sql-toggle[hidden] { display: none; }
+  @media (max-width: 30rem) {
+    .caption { left: 1rem; bottom: 0.75rem; padding: 0.75rem 0.875rem; }
+    .caption h2 { font-size: 1.375rem; }
+    .caption #c-text { font-size: 0.875rem; }
+  }
+
+  .zoom { right: 1.5rem; bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.625rem; }
+  .zoom button { min-width: 1.75rem; height: 1.75rem; font-size: 1.125rem; line-height: 1; transition: background-color 0.15s ease; }
+  .zoom button:hover { background: rgb(190 200 235 / 0.14); }
+  .zoom .wide { font-size: 0.875rem; padding-inline: 0.625rem; border-left: 1px solid var(--line-s); white-space: nowrap; }
+  .zoom .wide[aria-pressed='true'] { background: var(--accent-s); color: var(--void); }
+  .zoom input { width: 7.5rem; accent-color: var(--accent-s); }
+  @media (max-width: 56rem) {
+    .zoom { top: 5.25rem; bottom: auto; right: 1rem; padding: 0.25rem 0.375rem; }
+    .zoom input { display: none; }
+  }
+
+  .sql {
+    right: 1.5rem;
+    top: 3.5rem;
+    width: min(35rem, calc(100% - 2rem));
+    max-height: calc(100% - 9rem);
+    overflow: auto;
+    padding: 0.875rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .sql[hidden] { display: none; }
+  .sql pre { font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.55; overflow-x: auto; white-space: pre; }
+
+  .status { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; color: var(--ink-s2); pointer-events: none; }
+  .journey[data-state='loading'] .status-loading { display: flex; }
+  .journey[data-state='no-webgl'] .status-failed { display: flex; }
+  .journey[data-state='no-webgl'] :is(.zoom, #space) { display: none; }
+</style>
+
+<script>
+  import { mountJourney, unmountJourney } from '~/journey/scene';
+
+  document.addEventListener('astro:page-load', mountJourney);
+  document.addEventListener('astro:before-swap', unmountJourney);
+</script>

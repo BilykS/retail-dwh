@@ -28,6 +28,9 @@ src/report/aggregate.ts        the measures, pure functions, no DOM
 src/report/aggregate.test.ts   checks them against figures taken from SQL
 src/report/report.ts           renders the report and wires its filters
 src/report/labels.ts           English names for what the warehouse stores in Ukrainian
+src/journey/scene-data.ts      the data journey: tables, threads, stages, real values
+src/journey/scene.ts           the Three.js scene, loaded only on that page
+scripts/check-journey-data.mjs compares every value in the scene with the warehouse
 src/data/tables.ts             the model as the star diagram and the matrix draw it
 ```
 
@@ -43,6 +46,10 @@ moves the totals by less than 200 UAH.
 Order counts are stored twice on purpose. An order belongs to one month, store and
 channel, so counts add up across those. It can contain several categories, so
 per-category counts must not be added across categories. See `aggregate.ts`.
+
+The data journey page holds its values in `src/journey/scene-data.ts`, for one receipt
+line that exists in both systems. `npm run data` also checks them against the warehouse,
+and fails if any have drifted.
 
 To regenerate it, start the warehouse (`docker compose up -d` in the repository root),
 then run `npm run data`, then `npm test`. The expected values in `aggregate.test.ts` come

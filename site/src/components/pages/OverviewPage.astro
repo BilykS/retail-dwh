@@ -116,6 +116,7 @@ const COPY = {
     routesTitle: 'Go deeper',
     routes: [
       { path: '/report', title: 'Report', text: 'A dashboard with filters over the warehouse data: sales, margin, discounts, stock.' },
+      { path: '/journey', title: 'Data journey', text: 'A 3D flight: threads carry the values of one receipt line from two systems into two stars.' },
       { path: '/how', title: 'How it is built', text: 'The model, the decisions behind the numbers, tests and reconciliation.' },
     ],
   },
@@ -200,6 +201,7 @@ const COPY = {
     routesTitle: 'Детальніше',
     routes: [
       { path: '/report', title: 'Звіт', text: 'Дашборд із фільтрами за даними сховища: продажі, маржа, знижки, запаси.' },
+      { path: '/journey', title: 'Шлях даних', text: 'Тривимірний політ: нитки несуть значення одного рядка чека з двох систем у дві зірки.' },
       { path: '/how', title: 'Як побудовано', text: 'Модель, рішення, від яких залежать цифри, тести й звірка.' },
     ],
   },
@@ -298,7 +300,7 @@ const reportAt = (focus: string) => `${localePath(lang, '/report')}?q=${focus}`;
 
     <section class="flex flex-col gap-3">
       <h2 class="label">{COPY.routesTitle}</h2>
-      <nav class="grid gap-x-6 gap-y-4 sm:grid-cols-2" aria-label={COPY.routesTitle}>
+      <nav class="grid gap-x-6 gap-y-4 md:grid-cols-3" aria-label={COPY.routesTitle}>
         {COPY.routes.map((r) => (
           <a href={localePath(lang, r.path)} class="route flex flex-col gap-1.5 border-t border-rule-strong py-3.5 transition-colors hover:border-ink">
             <span class="display text-[1.5625rem] leading-tight">{r.title}</span>

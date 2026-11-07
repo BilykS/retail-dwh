@@ -35,6 +35,9 @@ import * as label from './labels';
 
 /* Fetched once per session. ClientRouter keeps this module alive across pages. */
 let dataPromise: Promise<ReportData> | null = null;
+/** Below this a chart has no room for its axes. A resize redraws it once layout settles. */
+const MIN_CHART_WIDTH = 120;
+
 const loadData = () =>
   (dataPromise ??= fetch('/data/report.json').then((r) => {
     if (!r.ok) throw new Error(`report.json: HTTP ${r.status}`);
@@ -357,7 +360,7 @@ class Report {
   private drawMonths() {
     const box = this.$('#c-month');
     const w = box.clientWidth;
-    if (!w) return;
+    if (w < MIN_CHART_WIDTH) return;
     const { data, fmt, lang } = this;
 
     const slots = data.months.map((_, i) => i).filter((i) => sales.year === null || yearOf(data, i) === sales.year);
@@ -426,7 +429,7 @@ class Report {
   private drawMargin() {
     const box = this.$('#c-margin');
     const w = box.clientWidth;
-    if (!w) return;
+    if (w < MIN_CHART_WIDTH) return;
     const { data, fmt, lang } = this;
 
     const slots = data.months.map((_, i) => i).filter((i) => sales.year === null || yearOf(data, i) === sales.year);
@@ -529,7 +532,7 @@ class Report {
   private drawDays() {
     const box = this.$('#c-day');
     const w = box.clientWidth;
-    if (!w) return;
+    if (w < MIN_CHART_WIDTH) return;
     const { data, fmt, lang, dayNumbers } = this;
 
     const v = (this.stockSeries = dailyOnHand(data, stock.warehouse));

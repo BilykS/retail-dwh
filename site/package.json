@@ -10,18 +10,20 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node --test src/report/aggregate.test.ts",
+    "test": "node --test src/report/aggregate.test.ts src/journey/scene-data.test.ts",
     "verify": "npm run check && npm test && astro build",
     "fonts": "node scripts/fetch-fonts.mjs",
-    "data": "node scripts/build-report-data.mjs && node scripts/build-insights.mjs"
+    "data": "node scripts/build-report-data.mjs && node scripts/build-insights.mjs && node scripts/check-journey-data.mjs"
   },
   "dependencies": {
-    "astro": "6.4.8"
+    "astro": "6.4.8",
+    "three": "0.128.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.6.6",
+    "@types/three": "0.128.0",
     "tailwindcss": "4.3.3",
     "typescript": "^6.0.3"
   }
