@@ -28,7 +28,7 @@ src/report/aggregate.ts        the measures, pure functions, no DOM
 src/report/aggregate.test.ts   checks them against figures taken from SQL
 src/report/report.ts           renders the report and wires its filters
 src/report/labels.ts           English names for what the warehouse stores in Ukrainian
-src/journey/scene-data.ts      the data journey: tables, threads, stages, real values
+src/journey/scene-data.ts      the data journey: tables, threads, stages, values, what each table is for
 src/journey/scene.ts           the Three.js scene, loaded only on that page
 scripts/check-journey-data.mjs compares every value in the scene with the warehouse
 src/data/tables.ts             the model as the star diagram and the matrix draw it

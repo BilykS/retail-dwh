@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import {
+  ABOUT,
   CAMERA,
   COLOR,
   FLOWS,
@@ -60,6 +61,8 @@ interface Card {
   home: THREE.Vector3;
   phase: number;
   drift: number;
+  /** Eases to a lower value while another table is open. */
+  fade: number;
 }
 
 interface Thread {
@@ -76,6 +79,7 @@ interface Thread {
   wave: number;
   lag: number;
   landed: boolean;
+  fade: number;
 }
 
 interface Link {
@@ -85,6 +89,7 @@ interface Link {
   bColumn: string;
   line: THREE.Line;
   material: THREE.LineBasicMaterial;
+  fade: number;
 }
 
 function dotTexture() {
@@ -134,6 +139,17 @@ class JourneyScene {
   private mouse = { x: 0, y: 0, tx: 0, ty: 0 };
   private pointers = new Map<number, { x: number; y: number }>();
   private pinch: { gap: number; zoom: number } | null = null;
+
+  /** The open table, and the names of the tables its threads touch. */
+  private selected: Card | null = null;
+  private related = new Set<string>();
+  private sourceLinkFade = 1;
+  /** How far the picture slides right to clear the caption, and how far it has. */
+  private captionShift = 0;
+  private shiftNow = -1;
+  private soft = 0;
+  private ray = new THREE.Raycaster();
+  private ndc = new THREE.Vector2();
 
   private camCurve = new THREE.CatmullRomCurve3(CAMERA.map((s) => new THREE.Vector3(...s.cam)), false, 'catmullrom', 0.35);
   private lookCurve = new THREE.CatmullRomCurve3(CAMERA.map((s) => new THREE.Vector3(...s.look)), false, 'catmullrom', 0.35);
@@ -256,7 +272,9 @@ class JourneyScene {
       home: new THREE.Vector3(...def.position),
       phase: Math.random() * Math.PI * 2,
       drift: 5 + Math.random() * 7,
+      fade: 1,
     };
+    mesh.userData.card = card;
     this.cards.set(name, card);
     this.paintCard(card);
   }
@@ -275,7 +293,7 @@ class JourneyScene {
     x.fillStyle = t.color ? withAlpha(t.color, 0.2) : 'rgba(190,200,235,.08)';
     x.fillRect(0, 0, w, HEADER * S);
     x.strokeStyle = t.color ?? 'rgba(190,200,235,.4)';
-    x.lineWidth = (fact ? 2 : 1) * S;
+    x.lineWidth = (t === this.selected ? 3 : fact ? 2 : 1) * S;
     x.strokeRect(x.lineWidth / 2, x.lineWidth / 2, w - x.lineWidth, h - x.lineWidth);
 
     x.textBaseline = 'middle';
@@ -283,6 +301,20 @@ class JourneyScene {
     x.font = `500 ${13 * S}px ${MONO}`;
     x.textAlign = 'left';
     x.fillText(t.name, 10 * S, (HEADER / 2) * S);
+    // A small "i" says that this table can be opened.
+    if (t.isTarget) {
+      const ix = 21 * S + x.measureText(t.name).width;
+      const iy = (HEADER / 2) * S;
+      x.beginPath();
+      x.arc(ix, iy, 6.5 * S, 0, Math.PI * 2);
+      x.lineWidth = 0.9 * S;
+      x.strokeStyle = t.color!;
+      x.stroke();
+      x.fillStyle = t.color!;
+      x.textAlign = 'center';
+      x.font = `500 ${9.5 * S}px ${MONO}`;
+      x.fillText('i', ix, iy + 0.5 * S);
+    }
     x.fillStyle = '#7C849E';
     x.font = `400 ${11.5 * S}px ${MONO}`;
     x.textAlign = 'right';
@@ -407,6 +439,7 @@ class JourneyScene {
         wave: ((i * 53) % 200) - 100,
         lag: 0,
         landed: false,
+        fade: 1,
       });
     });
     for (const t of this.threads) {
@@ -420,11 +453,11 @@ class JourneyScene {
     }
 
     this.sourceLinks = SOURCE_KEYS.map(([a, aColumn, b, bColumn]) => ({
-      a: this.cards.get(a)!, aColumn, b: this.cards.get(b)!, bColumn, ...this.newLine(COLOR.source, 0.26),
+      a: this.cards.get(a)!, aColumn, b: this.cards.get(b)!, bColumn, fade: 1, ...this.newLine(COLOR.source, 0.26),
     }));
     this.starLinks = STAR_LINKS.map(([a, aColumn, b, color]) => {
       const dim = this.cards.get(b)!;
-      return { a: this.cards.get(a)!, aColumn, b: dim, bColumn: columnName(dim.def.columns[0]), ...this.newLine(color, 0) };
+      return { a: this.cards.get(a)!, aColumn, b: dim, bColumn: columnName(dim.def.columns[0]), fade: 1, ...this.newLine(color, 0) };
     });
   }
 
@@ -467,6 +500,14 @@ class JourneyScene {
   private wireInput() {
     const signal = this.listeners.signal;
     const { root, canvas } = this;
+
+    this.$('c-chips').addEventListener('click', (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('[data-table]');
+      if (!b) return;
+      const card = this.cards.get(b.dataset.table!)!;
+      this.select(this.selected === card ? null : card);
+    }, { signal });
+    this.$('c-back').addEventListener('click', () => this.select(null), { signal });
 
     this.$('stages').addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('[data-stage]');
@@ -522,6 +563,7 @@ class JourneyScene {
       if (el.tagName === 'INPUT' || el.tagName === 'SELECT') return;
       // Leave browser shortcuts alone: Alt + Left is "back", Ctrl + plus zooms the page.
       if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'Escape') this.select(null);
       const go = (d: number) => { e.preventDefault(); this.setWhole(false); this.stageTarget = clamp(this.stageTarget + d, 0, LAST); };
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(0.2);
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') go(-0.2);
@@ -562,6 +604,34 @@ class JourneyScene {
     };
     canvas.addEventListener('pointerup', release, { signal });
     canvas.addEventListener('pointercancel', release, { signal });
+
+    // A press that barely moved is a click and opens a table. Anything longer turned the scene.
+    const tip = this.$('tip');
+    let press: { x: number; y: number; at: number; several: boolean } | null = null;
+    canvas.addEventListener('pointerdown', (e) => {
+      press = { x: e.clientX, y: e.clientY, at: performance.now(), several: this.pointers.size > 1 };
+      tip.hidden = true;
+    }, { signal });
+    canvas.addEventListener('pointerup', (e) => {
+      const p = press;
+      press = null;
+      if (!p || p.several || performance.now() - p.at > 600 || Math.hypot(e.clientX - p.x, e.clientY - p.y) > 6) return;
+      const hit = this.pick(e.clientX, e.clientY);
+      this.select(hit === this.selected ? null : hit);
+    }, { signal });
+    canvas.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse' || this.pointers.size) return;
+      const hit = this.pick(e.clientX, e.clientY);
+      canvas.classList.toggle('can-open', !!hit);
+      tip.hidden = !hit;
+      if (!hit) return;
+      this.$('tip-title').textContent = ABOUT[this.lang][hit.name].title;
+      this.$('tip-name').textContent = hit.name;
+      const r = root.getBoundingClientRect();
+      tip.style.left = `${Math.min(e.clientX - r.left + 14, r.width - tip.offsetWidth - 8)}px`;
+      tip.style.top = `${e.clientY - r.top + 16}px`;
+    }, { signal });
+    canvas.addEventListener('pointerleave', () => { tip.hidden = true; }, { signal });
   }
 
   private resize() {
@@ -573,15 +643,20 @@ class JourneyScene {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+
+    // Tables framed by a stage take about half the height. Narrow layouts stack instead.
+    const caption = this.root.querySelector<HTMLElement>('.caption')!;
+    const clear = caption.offsetLeft + caption.offsetWidth + 16 - (w / 2 - 0.26 * h);
+    this.captionShift = w < 896 ? 0 : clamp(clear, 0, w * 0.2);
+    this.shiftNow = -1;
   }
 
   private setStage(i: number) {
     if (i === this.lastStage) return;
     this.lastStage = i;
-    const copy = STAGES[this.lang][i];
-    this.$('c-eyebrow').textContent = copy.eyebrow;
-    this.$('c-title').textContent = copy.title;
-    this.$('c-text').textContent = copy.text;
+    this.select(null);
+    this.showChips(i);
+    this.renderCaption();
     this.root.dataset.stage = String(i);
 
     const nav = this.$('stages');
@@ -589,12 +664,89 @@ class JourneyScene {
     const active = nav.querySelector<HTMLElement>(`[data-stage="${i}"]`);
     if (active) nav.scrollLeft = active.offsetLeft - 40;
 
+    if (i !== LAST) this.closeQueries();
+  }
+
+  private closeQueries() {
     const sql = this.$('sql-toggle');
-    sql.hidden = i !== LAST;
-    if (i !== LAST) {
-      this.$('sql-panel').hidden = true;
-      sql.textContent = sql.dataset.show!;
+    this.$('sql-panel').hidden = true;
+    sql.textContent = sql.dataset.show!;
+  }
+
+  /* ───────────────────────────── Opening a table ────────────────────────── */
+
+  private partnersOf(card: Card) {
+    const names = this.starLinks
+      .filter((l) => l.a === card || l.b === card)
+      .map((l) => (l.a === card ? l.b : l.a).name);
+    return [...new Set(names)];
+  }
+
+  private select(card: Card | null) {
+    if (card === this.selected) return;
+    const previous = this.selected;
+    this.selected = card;
+    this.related.clear();
+    if (previous) this.paintCard(previous);
+    if (card) {
+      this.related.add(card.name);
+      for (const t of this.threads) {
+        if (t.to === card) this.related.add(t.from.name);
+        if (t.from === card) this.related.add(t.to.name);
+      }
+      this.partnersOf(card).forEach((name) => this.related.add(name));
+      this.paintCard(card);
+      this.closeQueries();
     }
+    if (this.lastStage >= 0) this.renderCaption();
+  }
+
+  /** The caption describes the open table, or else the current stage. */
+  private renderCaption() {
+    const card = this.selected;
+    const about = card && ABOUT[this.lang][card.name];
+    const copy = STAGES[this.lang][this.lastStage];
+    const eyebrow = this.$('c-eyebrow');
+    eyebrow.textContent = about ? `${about.kind} · ${card.name}` : copy.eyebrow;
+    eyebrow.classList.toggle('as-name', !!about);
+    this.$('c-title').textContent = about ? about.title : copy.title;
+    this.$('c-text').textContent = about ? about.text : copy.text;
+
+    this.$('c-links').hidden = !about;
+    if (about) {
+      const sources = this.threads.filter((t) => t.to === card && !t.from.isTarget).map((t) => t.from.name);
+      const origin = about.from ?? [...new Set(sources)].join(', ');
+      this.$('c-from').textContent = origin;
+      this.$('c-from').hidden = this.$('c-from-label').hidden = !origin;
+      this.$('c-partners').textContent = this.partnersOf(card).join(', ');
+    }
+    this.$('c-back').hidden = !about;
+    this.$('sql-toggle').hidden = !!about || this.lastStage !== LAST;
+    this.$('c-chips').querySelectorAll<HTMLElement>('[data-table]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.table === card?.name));
+    });
+  }
+
+  /** The tables built on this stage. The last two stages show the finished model, so all of them. */
+  private showChips(stage: number) {
+    let any = false;
+    this.$('c-chips').querySelectorAll<HTMLElement>('[data-table]').forEach((b) => {
+      const on = stage >= LAST - 1 || this.cards.get(b.dataset.table!)!.stage === stage;
+      b.hidden = !on;
+      any ||= on;
+    });
+    this.$('c-chips-wrap').hidden = !any;
+  }
+
+  private pick(clientX: number, clientY: number) {
+    const r = this.canvas.getBoundingClientRect();
+    this.ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+    this.ray.setFromCamera(this.ndc, this.camera);
+    const meshes = [...this.cards.values()]
+      .filter((c) => c.isTarget && c.mesh.visible && c.material.opacity > 0.05)
+      .map((c) => c.mesh);
+    const hit = this.ray.intersectObjects(meshes)[0];
+    return hit ? (hit.object.userData.card as Card) : null;
   }
 
   /* ───────────────────────────────── Frame ──────────────────────────────── */
@@ -629,6 +781,7 @@ class JourneyScene {
   private frame = () => {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.time += this.calm ? 0 : dt;
+    this.soft = 1 - Math.exp(-dt * 5);
     const stage = this.stageNow += (this.stageTarget - this.stageNow) * (1 - Math.exp(-dt * 4.2));
     if (Math.abs(this.stageTarget - stage) < 0.0005) this.stageNow = this.stageTarget;
 
@@ -679,11 +832,18 @@ class JourneyScene {
     camera.position.set(pos.x + (mouse.x * 50 + orbit) * far, pos.y + (-mouse.y * 34 + bob) * far, pos.z);
     camera.lookAt(look);
 
+    // The whole scheme needs the full width, so it does not slide.
+    const shift = this.captionShift * (1 - wholeness);
+    if (Math.abs(shift - this.shiftNow) > 0.5) {
+      this.shiftNow = shift;
+      camera.setViewOffset(this.width, this.height, -shift, 0, this.width, this.height);
+    }
+
     this.stars.rotation.y = this.time * 0.004;
   }
 
   private updateCards() {
-    const { time, camera, dummy, stageNow } = this;
+    const { time, camera, dummy, stageNow, selected, related, soft } = this;
     this.cards.forEach((t) => {
       // Tables drift in zero gravity and turn slowly toward the viewer.
       const d = t.drift;
@@ -698,10 +858,11 @@ class JourneyScene {
       dummy.rotateY(Math.cos(time * 0.24 + t.phase) * 0.07);
       t.mesh.quaternion.slerp(dummy.quaternion, 0.05);
       t.mesh.updateMatrixWorld();
-      if (t.isTarget) {
-        t.material.opacity = clamp((stageNow - (t.stage - 1.15)) / 0.4, 0, 1);
-        t.mesh.visible = t.material.opacity > 0.01;
-      }
+      const base = t.isTarget ? clamp((stageNow - (t.stage - 1.15)) / 0.4, 0, 1) : t.def.unused ? 0.7 : 1;
+      t.mesh.visible = base > 0.01;
+      // With a table open, everything unrelated to it recedes.
+      t.fade += ((selected && !related.has(t.name) ? 0.16 : 1) - t.fade) * soft;
+      t.material.opacity = base * t.fade;
     });
 
     this.receiptMaterial.opacity = clamp(1 - Math.abs(stageNow - 1) / 0.6, 0, 1);
@@ -713,7 +874,8 @@ class JourneyScene {
   }
 
   private updateLinks() {
-    const { pa, pb, c1, c2, stageNow } = this;
+    const { pa, pb, c1, c2, stageNow, selected, soft } = this;
+    this.sourceLinkFade += ((selected ? 0.1 : 1) - this.sourceLinkFade) * soft;
     for (const f of this.sourceLinks) {
       const leftToRight = f.a.home.x <= f.b.home.x;
       this.rowPoint(f.a, f.aColumn, leftToRight ? 1 : -1, pa);
@@ -722,7 +884,7 @@ class JourneyScene {
       c1.set(pa.x + (leftToRight ? m : -m), pa.y, pa.z + 30);
       c2.set(pb.x + (leftToRight ? -m : m), pb.y, pb.z + 30);
       this.writeCurve(f.line);
-      f.material.opacity = stageNow < LAST - 1 + 0.2 ? 0.3 : 0.2;
+      f.material.opacity = (stageNow < LAST - 1 + 0.2 ? 0.3 : 0.2) * this.sourceLinkFade;
     }
 
     // The stars' own lines light up last.
@@ -739,12 +901,13 @@ class JourneyScene {
       c1.set(pa.x + (left ? -m : m), pa.y, pa.z + 20);
       c2.set(pb.x + (right ? -m : m), pb.y, pb.z + 20);
       this.writeCurve(f.line);
-      f.material.opacity = opacity;
+      f.fade += ((selected && f.a !== selected && f.b !== selected ? 0.05 : 1) - f.fade) * soft;
+      f.material.opacity = opacity * f.fade;
     }
   }
 
   private updateThreads() {
-    const { pa, pb, c1, c2, pt, stageNow, time } = this;
+    const { pa, pb, c1, c2, pt, stageNow, time, selected, soft } = this;
     this.threads.forEach((f, i) => {
       const stage = f.to.stage;
       const span = 0.85;
@@ -773,10 +936,12 @@ class JourneyScene {
       let opacity = stageNow < stage + 0.35 ? 0.78 : this.lastStage === LAST ? 0.55 : 0.24;
       // Keys between facts and dimensions hand over to the stars' brighter lines.
       if (f.from.isTarget) opacity *= 1 - clamp((stageNow - (stage + 0.2)) / 0.5, 0, 1);
-      f.material.opacity = opacity;
+      const mine = f.to === selected || f.from === selected;
+      f.fade += ((selected && !mine ? 0.05 : 1) - f.fade) * soft;
+      f.material.opacity = (selected && mine ? Math.max(opacity, 0.9) : opacity) * f.fade;
 
       // A pulse keeps running along every finished thread.
-      if (f.landed && !this.calm) {
+      if (f.landed && !this.calm && (!selected || mine)) {
         this.bezier((time * 0.16 + i * 0.137) % 1, pt);
         this.pulsePositions.set([pt.x, pt.y, pt.z], i * 3);
         this.pulseColors.set([f.color.r, f.color.g, f.color.b], i * 3);

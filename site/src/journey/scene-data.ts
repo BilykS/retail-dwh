@@ -40,6 +40,8 @@ export interface TargetTable extends SourceTable {
   stage: number;
   color: string;
   fact?: boolean;
+  /** Built from a calendar, so no source column feeds it. */
+  generated?: boolean;
 }
 
 export const SOURCES: Record<string, SourceTable> = {
@@ -83,7 +85,7 @@ export const TARGETS: Record<string, TargetTable> = {
   dim_product: { position: [1500, 290, -80], stage: 2, color: COLOR.product, rows: '2 001', columns: [['product_key*', 'f74909ac...'], ['product_id', '430'], ['sku', 'SKU-000430'], ['product_name', 'Orbita W-677'], ['category_name', 'Велосипеди'], ['category_parent', 'Спорт'], ['brand_name', 'Orbita'], ['unit_cost', '8026.07']] },
   dim_store: { position: [450, 270, -60], stage: 3, color: COLOR.store, rows: '30', columns: [['store_key*', 'c74d97b0...'], ['store_id', '16'], ['store_code', 'ST-016'], ['store_name', 'ТЦ Вінниця №16'], ['city_name', 'Вінниця'], ['region', 'Вінницька'], ['store_type', 'standard'], ['opened_at', '2016-04-06'], ['closed_at', 'null']] },
   dim_customer: { position: [450, -290, 100], stage: 3, color: COLOR.customer, rows: '20 401', columns: [['customer_key*', '664c7298...'], ['customer_id', '8394'], ['full_name', 'Дмитро Шевченко'], ['email', 'user8394@gmail.com'], ['phone', '+380592028132'], ['birth_date', '1966-02-08'], ['gender', 'Чоловіча'], ['city', 'Київ'], ['loyalty_tier', 'Без картки']] },
-  dim_date: { position: [1500, -300, -60], stage: 4, color: COLOR.date, rows: '1 096', columns: [['date_key*', '20250923'], ['full_date', '2025-09-23'], ['year', '2025'], ['quarter', '3'], ['month', '9'], ['month_name', 'Вересень'], ['day', '23'], ['day_of_week', '2'], ['day_name', 'Вівторок'], ['is_weekend', 'false']] },
+  dim_date: { position: [1500, -300, -60], stage: 4, color: COLOR.date, rows: '1 096', generated: true, columns: [['date_key*', '20250923'], ['full_date', '2025-09-23'], ['year', '2025'], ['quarter', '3'], ['month', '9'], ['month_name', 'Вересень'], ['day', '23'], ['day_of_week', '2'], ['day_name', 'Вівторок'], ['is_weekend', 'false']] },
   dim_transaction_type: { position: [1000, 440, -220], stage: 4, color: COLOR.type, rows: '18', columns: [['transaction_type_key*', 'fc3239fd...'], ['channel', 'mobile'], ['order_type', 'sale'], ['payment_method', 'online']] },
   fact_sales: { position: [1000, -30, 170], stage: 5, color: COLOR.fact, rows: '233 015', fact: true, columns: [['order_item_id', '260'], ['date_key', '20250923'], ['product_key', 'f74909ac...'], ['store_key', 'c74d97b0...'], ['customer_key', '664c7298...'], ['transaction_type_key', 'fc3239fd...'], ['hour', '21'], ['order_number', 'ORD-0000101'], ['quantity', '1'], ['gross_amount', '10629.67'], ['discount_amount', '2335.34'], ['net_amount', '8294.33'], ['cost_amount', '8026.07']] },
   dim_warehouse: { position: [2550, 270, -60], stage: 7, color: COLOR.warehouse, rows: '5', columns: [['warehouse_key*', 'a87ff679...'], ['warehouse_id', '4'], ['warehouse_code', 'WH-EAST'], ['warehouse_name', 'Східний склад Дніпро'], ['warehouse_city', 'Дніпро'], ['warehouse_type', 'regional'], ['warehouse_opened_at', '2020-11-02']] },
@@ -102,17 +104,16 @@ export const FLOWS: Flow[] = [
   ['stores.store_id', 'dim_store.store_id'], ['stores.store_code', 'dim_store.store_code'], ['stores.store_name', 'dim_store.store_name'], ['cities.city_name', 'dim_store.city_name'], ['cities.region', 'dim_store.region'], ['stores.store_type', 'dim_store.store_type'], ['stores.opened_at', 'dim_store.opened_at'], ['stores.closed_at', 'dim_store.closed_at'],
   ['customers.customer_id', 'dim_customer.customer_id'], ['customers.full_name', 'dim_customer.full_name'], ['customers.email', 'dim_customer.email'], ['customers.phone', 'dim_customer.phone'], ['customers.birth_date', 'dim_customer.birth_date'], ['customers.gender', 'dim_customer.gender'], ['cities.city_name', 'dim_customer.city', 'Київ'], ['customers.loyalty_tier', 'dim_customer.loyalty_tier', 'Без картки'],
 
-  ['orders.ordered_at', 'dim_date.full_date', '2025-09-23'], ['orders.ordered_at', 'dim_date.year', '2025'], ['orders.ordered_at', 'dim_date.quarter', '3'], ['orders.ordered_at', 'dim_date.month', '9'], ['orders.ordered_at', 'dim_date.month_name', 'Вересень'], ['orders.ordered_at', 'dim_date.day', '23'], ['orders.ordered_at', 'dim_date.day_of_week', '2'], ['orders.ordered_at', 'dim_date.day_name', 'Вівторок'], ['orders.ordered_at', 'dim_date.is_weekend', 'false'],
   ['orders.channel', 'dim_transaction_type.channel'], ['orders.order_type', 'dim_transaction_type.order_type'], ['orders.payment_method', 'dim_transaction_type.payment_method'],
 
-  ['order_items.order_item_id', 'fact_sales.order_item_id'], ['dim_date.date_key', 'fact_sales.date_key'], ['dim_product.product_key', 'fact_sales.product_key'], ['dim_store.store_key', 'fact_sales.store_key'], ['dim_customer.customer_key', 'fact_sales.customer_key'], ['dim_transaction_type.transaction_type_key', 'fact_sales.transaction_type_key'],
+  ['order_items.order_item_id', 'fact_sales.order_item_id'], ['dim_date.date_key', 'fact_sales.date_key'], ['orders.ordered_at', 'fact_sales.date_key', '20250923'], ['dim_product.product_key', 'fact_sales.product_key'], ['dim_store.store_key', 'fact_sales.store_key'], ['dim_customer.customer_key', 'fact_sales.customer_key'], ['dim_transaction_type.transaction_type_key', 'fact_sales.transaction_type_key'],
   ['orders.ordered_at', 'fact_sales.hour', '21'], ['orders.order_number', 'fact_sales.order_number'], ['order_items.quantity', 'fact_sales.quantity'],
   ['order_items.unit_price', 'fact_sales.gross_amount'], ['order_items.discount_pct', 'fact_sales.discount_amount', '2335.34'], ['order_items.unit_price', 'fact_sales.net_amount', '8294.33'], ['product_changes.new_value', 'fact_sales.cost_amount'],
 
   ['warehouses.warehouse_id', 'dim_warehouse.warehouse_id'], ['warehouses.wh_code', 'dim_warehouse.warehouse_code'], ['warehouses.wh_name', 'dim_warehouse.warehouse_name'], ['warehouses.city', 'dim_warehouse.warehouse_city'], ['warehouses.wh_type', 'dim_warehouse.warehouse_type'], ['warehouses.opened_at', 'dim_warehouse.warehouse_opened_at'],
   ['articles.article_id', 'dim_article.article_id'], ['articles.article_code', 'dim_article.article_code'], ['articles.article_name', 'dim_article.article_name'], ['articles.retail_sku', 'dim_article.article_retail_sku'], ['articles.unit', 'dim_article.article_unit'], ['articles.is_active', 'dim_article.article_is_active'],
 
-  ['dim_date.date_key', 'fact_inventory.date_key'], ['dim_warehouse.warehouse_key', 'fact_inventory.warehouse_key'], ['dim_article.article_key', 'fact_inventory.article_key'], ['dim_product.product_key', 'fact_inventory.product_key'],
+  ['dim_date.date_key', 'fact_inventory.date_key'], ['stock_daily.snapshot_date', 'fact_inventory.date_key', '20250923'], ['dim_warehouse.warehouse_key', 'fact_inventory.warehouse_key'], ['dim_article.article_key', 'fact_inventory.article_key'], ['dim_product.product_key', 'fact_inventory.product_key'],
   ['stock_daily.qty_on_hand', 'fact_inventory.qty_on_hand'], ['stock_daily.qty_reserved', 'fact_inventory.qty_reserved'], ['stock_daily.qty_in_transit', 'fact_inventory.qty_in_transit'], ['stock_daily.qty_on_hand', 'fact_inventory.qty_available', '182'],
 
   ['fact_inventory.qty_available', 'stock_cover.qty_stock', '878'], ['fact_sales.quantity', 'stock_cover.avg_per_day', '0.375'], ['fact_inventory.product_key', 'stock_cover.product_key'], ['fact_sales.quantity', 'stock_cover.days_cover', '2341.3'],
@@ -165,7 +166,7 @@ export const STAGES: Record<'en' | 'uk', StageCopy[]> = {
     { label: 'Grain', eyebrow: 'First decision', title: 'One row is one receipt line', text: 'There are 236,891 rows in order_items. Cancelled orders go (3,876), and 233,015 reach the fact. Returns stay, with a minus sign.' },
     { label: 'Product', eyebrow: 'Shared dimension', title: 'Three tables become one product', text: 'Brand and category move into the product row. This is the current state: the history of names and categories is kept separately, in the star schema.' },
     { label: 'Store and customer', eyebrow: 'Dimensions', title: 'The city moves into the dimensions', text: 'There is one cities table, but the values differ: a customer from Kyiv bought in a store in Vinnytsia. A customer with no card still has a row, and anonymous sales go to row -1.' },
-    { label: 'Date and type', eyebrow: 'Dimensions', title: 'The date and the receipt attributes', text: 'The date becomes a shared dimension, because reports need month, quarter and weekday. Channel, type and payment method collapse into one dimension of 18 combinations.' },
+    { label: 'Date and type', eyebrow: 'Dimensions', title: 'The date and the receipt attributes', text: 'The calendar is generated, not taken from a source, because reports need month, quarter and weekday. Channel, type and payment method collapse into one dimension of 18 combinations.' },
     { label: 'Sales', eyebrow: 'First fact', title: 'One row: keys and measures', text: 'Net 8,294.33 after a 21.97% discount. Cost of 8,026.07 is taken as of the sale date: the purchase price rose on 10 June 2025, and the sale happened in September.' },
     { label: 'Warehouse', eyebrow: 'wms schema', title: 'A second source: 3 tables', text: 'The warehouse lives apart and has its own article codes. 60 articles have no retail product, and 15 products have two warehouse cards.' },
     { label: 'Warehouse and article', eyebrow: 'Dimensions', title: 'Two more dimensions', text: 'An article links to a product through retail_sku. The link only runs from article to product, otherwise rows multiply.' },
@@ -179,7 +180,7 @@ export const STAGES: Record<'en' | 'uk', StageCopy[]> = {
     { label: 'Зерно', eyebrow: 'Перше рішення', title: 'Один рядок це одна позиція чека', text: 'Рядків у order_items 236 891, скасовані замовлення прибираємо (3 876), у факт піде 233 015. Повернення лишаються з мінусом.' },
     { label: 'Товар', eyebrow: 'Спільний вимір', title: 'Три таблиці стають одним товаром', text: 'Бренд і категорія переїжджають у рядок товару. Тут поточний стан: історія назв і категорій зберігається окремо, у схемі star.' },
     { label: 'Магазин і покупець', eyebrow: 'Виміри', title: 'Місто переїжджає у виміри', text: 'Таблиця cities одна, а значення різні: покупець із Києва купив у магазині у Вінниці. Покупець без картки теж має рядок, а анонімні продажі приймає запис -1.' },
-    { label: 'Дата й тип', eyebrow: 'Виміри', title: 'Дата й атрибути чека', text: 'Дата стає спільним виміром, бо звітам потрібні місяць, квартал і день тижня. Канал, тип і спосіб оплати складаються в один вимір на 18 комбінацій.' },
+    { label: 'Дата й тип', eyebrow: 'Виміри', title: 'Дата й атрибути чека', text: 'Календар генерується, а не береться з джерела, бо звітам потрібні місяць, квартал і день тижня. Канал, тип і спосіб оплати складаються в один вимір на 18 комбінацій.' },
     { label: 'Продажі', eyebrow: 'Перший факт', title: 'Один рядок: ключі й міри', text: 'Чистими 8 294,33 після знижки 21,97%. Собівартість 8 026,07 береться на дату продажу: закупівельну ціну підняли 10 червня 2025, а продаж стався у вересні.' },
     { label: 'Склад', eyebrow: 'Схема wms', title: 'Друге джерело: 3 таблиці', text: 'Склад живе окремо і має власні коди артикулів. 60 артикулів не мають роздрібного товару, а 15 товарів мають по дві складські картки.' },
     { label: 'Склад і артикул', eyebrow: 'Виміри', title: 'Ще два виміри', text: 'Артикул зв’язаний із товаром через retail_sku. Зв’язок іде лише від артикула до товару, інакше рядки множаться.' },
@@ -188,6 +189,42 @@ export const STAGES: Record<'en' | 'uk', StageCopy[]> = {
     { label: 'Дві зірки', eyebrow: 'Результат', title: 'Два факти на спільних вимірах', text: 'Дата й товар належать обом зіркам, тому продажі й залишки можна поставити поруч. Значення того самого товару тепер лежать за один join від факту.' },
     { label: 'Весь шлях', eyebrow: 'Що це дало', title: 'З двох систем в одну модель', text: '14 таблиць стали двома фактами й сімома вимірами. Ниточки показують, звідки прийшла кожна колонка. Запит виручки за областю став коротшим, а результат в усіх 18 областях відрізняється менш ніж на гривню, через округлення.' },
   ],
+};
+
+export interface TableAbout {
+  kind: string;
+  title: string;
+  text: string;
+  /** Replaces the list of source tables where the threads do not tell the story. */
+  from?: string;
+}
+
+/** What each table is for, shown when it is opened. scripts/check-journey-data.mjs checks the figures. */
+export const ABOUT: Record<'en' | 'uk', Record<string, TableAbout>> = {
+  en: {
+    dim_date: { kind: 'Dimension, shared', title: 'When it happened', from: 'a calendar, generate_series', text: 'Months, quarters, weekends. It shows the season: November and December brought 27.8% of 2025 revenue. Both stars share it, so sales and stock sit on one time scale.' },
+    dim_product: { kind: 'Dimension, shared', title: 'Which product', text: 'Categories, brands, cost. It shows which products carry revenue: 552 of 2,000 bring 80%. Both stars share it, and it is where sales meet stock.' },
+    dim_store: { kind: 'Dimension', title: 'Where it sold', text: 'Store, format, city, region. It compares locations: in 2025 revenue per store ranges from 22.7 M to 158.3 M.' },
+    dim_customer: { kind: 'Dimension', title: 'Who bought', text: 'City, age, loyalty card. Anonymous purchases sit in row -1. The cut exists, but in this generated data the loyalty tier barely affects sales.' },
+    dim_transaction_type: { kind: 'Dimension', title: 'How it sold', text: 'Channel, operation type, payment method: 18 combinations in one dimension instead of three. This is where returns separate from sales.' },
+    dim_warehouse: { kind: 'Dimension', title: 'Where it is kept', text: 'Warehouse, city, type. It compares stock across 5 warehouses. It belongs only to the stock star: sales do not record a warehouse.' },
+    dim_article: { kind: 'Dimension', title: 'The warehouse card', text: 'An article from the warehouse system. It links stock to retail through retail_sku. Stock with no retail product is not lost: that is 19,005 rows of the fact.' },
+    fact_sales: { kind: 'Fact', title: 'How much it earned', text: 'Grain: one receipt line. Revenue, discount, cost and quantity add up across any dimension, so margin is calculated here.' },
+    fact_inventory: { kind: 'Fact', title: 'How much is in stock', text: 'Grain: one article in one warehouse on one day. Stock adds up across warehouses but not across dates, because the same goods are counted again every day.' },
+    stock_cover: { kind: 'Both facts', title: 'How many days it will last', text: 'Stock divided by average daily sales. Each fact is first aggregated to product level. The generator does not tie stock to sales, so the figure is high.' },
+  },
+  uk: {
+    dim_date: { kind: 'Вимір, спільний', title: 'Коли це сталося', from: 'календар, generate_series', text: 'Місяці, квартали, вихідні. Через неї видно сезонність: листопад і грудень дали 27,8% виручки 2025 року. Спільна для обох зірок, тому продажі й залишки стоять на одній шкалі часу.' },
+    dim_product: { kind: 'Вимір, спільний', title: 'Який це товар', text: 'Категорії, бренди, собівартість. Показує, які товари тримають виручку: 552 із 2 000 дають 80%. Спільна для обох зірок, через неї продажі зустрічаються із залишками.' },
+    dim_store: { kind: 'Вимір', title: 'Де продали', text: 'Магазин, формат, місто, область. Порівнює точки між собою: у 2025 році виручка на магазин коливається від 22,7 до 158,3 млн.' },
+    dim_customer: { kind: 'Вимір', title: 'Хто купив', text: 'Місто, вік, картка лояльності. Анонімні покупки лежать у рядку -1. Розріз є, але в цих згенерованих даних рівень лояльності майже не впливає на продажі.' },
+    dim_transaction_type: { kind: 'Вимір', title: 'Як продали', text: 'Канал, тип операції, спосіб оплати: 18 комбінацій в одному вимірі замість трьох окремих. Саме тут повернення відділяються від продажів.' },
+    dim_warehouse: { kind: 'Вимір', title: 'Де лежить', text: 'Склад, місто, тип. Порівнює запаси між 5 складами. Належить лише зірці залишків: у продажах склад не записаний.' },
+    dim_article: { kind: 'Вимір', title: 'Складська картка', text: 'Артикул зі складської системи. Зв’язує склад із роздробом через retail_sku. Залишки без роздрібного товару не губляться: це 19 005 рядків факту.' },
+    fact_sales: { kind: 'Факт', title: 'Скільки заробили', text: 'Зерно: одна позиція чека. Виручку, знижку, собівартість і кількість можна додавати за будь-яким виміром, тому звідси рахується маржа.' },
+    fact_inventory: { kind: 'Факт', title: 'Скільки лежить', text: 'Зерно: артикул на складі за день. Залишок можна додавати між складами, але не між датами, бо той самий товар перераховується щодня.' },
+    stock_cover: { kind: 'Обидва факти', title: 'На скільки днів вистачить', text: 'Залишок ділиться на середні продажі за день. Факти спершу агрегуються до рівня товару. Генератор не пов’язує запаси з продажами, тому днів виходить багато.' },
+  },
 };
 
 /** The receipt shown at the grain stage. */

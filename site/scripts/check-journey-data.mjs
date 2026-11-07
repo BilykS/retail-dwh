@@ -7,7 +7,7 @@
  * Run: node scripts/check-journey-data.mjs (needs the warehouse running)
  */
 
-import { SOURCES, TARGETS } from '../src/journey/scene-data.ts';
+import { ABOUT, SOURCES, TARGETS } from '../src/journey/scene-data.ts';
 import { query } from './warehouse.mjs';
 
 const WHERE = {
@@ -69,6 +69,26 @@ for (const [table, def] of Object.entries({ ...SOURCES, ...TARGETS })) {
     checked++;
     if (!matches(shown, row[name])) problems.push(`${table}.${name}: shows ${shown}, warehouse has ${row[name]}`);
   }
+}
+
+// Figures quoted in the table descriptions: table, query, as written in English and Ukrainian.
+const REVENUE_2025 = `dbt_star.fact_sales f join dbt_star.dim_date d using (date_key) where d.year = 2025`;
+const FIGURES = [
+  ['dim_date', `select round(100.0 * sum(net_amount) filter (where d.month in (11, 12)) / sum(net_amount), 1) from ${REVENUE_2025}`, '27.8', '27,8'],
+  ['dim_product', `select count(*) from (select sum(v) over (order by v desc, k) c, sum(v) over () t from (select product_key k, sum(net_amount) v from dbt_star.fact_sales group by 1) p) r where c <= 0.8 * t`, '552', '552'],
+  ['dim_product', `select count(*) from dbt_star.dim_product where product_id <> -1`, '2,000', '2 000'],
+  ['dim_store', `select round(min(v) / 1e6, 1) from (select store_key, sum(net_amount) v from ${REVENUE_2025} group by 1) t`, '22.7', '22,7'],
+  ['dim_store', `select round(max(v) / 1e6, 1) from (select store_key, sum(net_amount) v from ${REVENUE_2025} group by 1) t`, '158.3', '158,3'],
+  ['dim_transaction_type', `select count(*) from dbt_star.dim_transaction_type`, '18', '18'],
+  ['dim_warehouse', `select count(*) from dbt_star.dim_warehouse`, '5', '5'],
+  ['dim_article', `select count(*) from dbt_star.fact_inventory f join dbt_star.dim_product p using (product_key) where p.product_id = -1`, '19,005', '19 005'],
+];
+for (const [table, sql, en, uk] of FIGURES) {
+  checked++;
+  const actual = String(query(sql)[0][0]);
+  if (actual !== en.replace(/,/g, '')) problems.push(`${table}: the text says ${en}, warehouse has ${actual}`);
+  if (!ABOUT.en[table].text.includes(en)) problems.push(`${table}: English text no longer quotes ${en}`);
+  if (!ABOUT.uk[table].text.includes(uk)) problems.push(`${table}: Ukrainian text no longer quotes ${uk}`);
 }
 
 console.log(`checked ${checked} values`);

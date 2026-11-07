@@ -4,7 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CAMERA, FLOWS, SOURCES, SOURCE_KEYS, STAGES, STAR_LINKS, TARGETS } from './scene-data.ts';
+import { ABOUT, CAMERA, FLOWS, SOURCES, SOURCE_KEYS, STAGES, STAR_LINKS, TARGETS } from './scene-data.ts';
 
 const ALL = { ...SOURCES, ...TARGETS };
 const hasColumn = (table: string, column: string) =>
@@ -20,14 +20,24 @@ test('every thread joins columns that exist', () => {
   }
 });
 
-test('every target column gets a value, unless it is the table key', () => {
+test('every target column gets a value, unless it is the key or comes from a calendar', () => {
   const fed = new Set(FLOWS.map((f) => f[1]));
   for (const [table, def] of Object.entries(TARGETS)) {
     for (const [name] of def.columns) {
-      if (name.endsWith('*')) continue;
+      if (name.endsWith('*') || def.generated) continue;
       assert.ok(fed.has(`${table}.${name}`), `nothing feeds ${table}.${name}`);
     }
   }
+});
+
+test('no source feeds a generated table', () => {
+  for (const [, to] of FLOWS) assert.ok(!TARGETS[to.split('.')[0]].generated, `${to} is generated`);
+});
+
+test('every target table is described in both languages', () => {
+  const names = Object.keys(TARGETS).sort();
+  assert.deepEqual(Object.keys(ABOUT.en).sort(), names);
+  assert.deepEqual(Object.keys(ABOUT.uk).sort(), names);
 });
 
 test('a thread only leaves a target table that already exists', () => {
@@ -57,6 +67,6 @@ test('both languages describe every camera stop', () => {
 });
 
 test('the copy uses no long dashes', () => {
-  const text = JSON.stringify(STAGES);
+  const text = JSON.stringify([STAGES, ABOUT]);
   assert.ok(!/[—–]/.test(text));
 });
